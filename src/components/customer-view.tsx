@@ -7,7 +7,7 @@ import {
   AVAILABLE_THEMES,
   type MenuItem, 
   type Menu 
-} from '../lib/database';
+} from '../lib/api';
 import { ShoppingCart, Plus, Minus, ChevronLeft, Image as ImageIcon } from 'lucide-react';
 
 interface CustomerViewProps {
@@ -24,16 +24,37 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const [settings, setSettings] = useState({ showPrices: true, theme: 'orange' });
 
   useEffect(() => {
-    const loadedSettings = getSettings();
-    setSettings(loadedSettings);
-    setMenus(getActiveMenus());
-  }, []);
+    async function loadInitialData() {
+      try {
+        const loadedSettings = await getSettings();
+        const loadedMenus = await getActiveMenus();
+  
+        setSettings(loadedSettings);
+        setMenus(Array.isArray(loadedMenus) ? loadedMenus : []);
+      } catch (error) {
+        console.error('Erro ao carregar dados iniciais:', error);
+        setMenus([]);
+      }
+    }
+  
+    loadInitialData();
+  }, []);  
 
   useEffect(() => {
-    if (selectedMenu) {
-      setMenuItems(getMenuItemsByMenuId(selectedMenu.id));
+    if (!selectedMenu) return;
+  
+    async function loadMenuItems() {
+      try {
+        const items = await getMenuItemsByMenuId(selectedMenu.id);
+        setMenuItems(Array.isArray(items) ? items : []);
+      } catch (error) {
+        console.error('Erro ao carregar itens do cardápio:', error);
+        setMenuItems([]);
+      }
     }
-  }, [selectedMenu]);
+  
+    loadMenuItems();
+  }, [selectedMenu]);  
 
   const updateQuantity = (itemId: number, change: number) => {
     setQuantities(prev => {

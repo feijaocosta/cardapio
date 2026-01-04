@@ -17,7 +17,7 @@ import {
   type MenuItem, 
   type Order,
   type Menu 
-} from '../lib/database';
+} from '../lib/api';
 import { 
   Settings as SettingsIcon, 
   Plus, 
@@ -56,36 +56,60 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [newMenuLogo, setNewMenuLogo] = useState('');
   const [selectedMenuForEdit, setSelectedMenuForEdit] = useState<Menu | null>(null);
 
-  const loadData = () => {
-    setMenuItems(getMenuItems());
-    setOrders(getOrders());
-    setMenus(getMenus());
-    setSettings(getSettings());
-  };
+  const safeOrders = Array.isArray(loadedOrders)
+  ? loadedOrders.map(order => ({
+      ...order,
+      items: Array.isArray(order.items) ? order.items : []
+    }))
+  : [];
+
+  const loadData = async () => {
+    try {
+      const [
+        loadedMenuItems,
+        loadedOrders,
+        loadedMenus,
+        loadedSettings
+      ] = await Promise.all([
+        getMenuItems(),
+        getOrders(),
+        getMenus(),
+        getSettings()
+      ]);
+  
+      setMenuItems(Array.isArray(loadedMenuItems) ? loadedMenuItems : []);
+      setOrders(safeOrders);
+      setMenus(Array.isArray(loadedMenus) ? loadedMenus : []);
+      setSettings(loadedSettings);
+    } catch (error) {
+      console.error('Erro ao carregar dados administrativos:', error);
+    }
+  };  
 
   useEffect(() => {
     loadData();
   }, [refreshTrigger]);
 
-  const handleAddItem = (e: React.FormEvent) => {
+  const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+  
     if (!newItemName.trim() || !newItemPrice) {
       alert('Por favor, preencha nome e preço');
       return;
     }
-
-    addMenuItem({
+  
+    await addMenuItem({
       name: newItemName.trim(),
       price: parseFloat(newItemPrice),
       description: newItemDescription.trim() || undefined,
     });
-
+  
     setNewItemName('');
     setNewItemPrice('');
     setNewItemDescription('');
-    loadData();
-  };
+  
+    await loadData();
+  };  
 
   const handleRemoveItem = (id: number) => {
     if (confirm('Deseja remover este item? Ele será removido de todos os cardápios.')) {
@@ -526,41 +550,54 @@ function MenuCard({ menu, allMenuItems, onToggleActive, onRemove, onUpdate }: Me
   const [availableItems, setAvailableItems] = useState<MenuItem[]>([]);
 
   useEffect(() => {
-    if (isExpanded) {
-      const items = getMenuItemsByMenuId(menu.id);
-      setMenuItems(items);
-      
-      const itemIds = new Set(items.map(i => i.id));
-      const available = allMenuItems.filter(i => !itemIds.has(i.id));
-      setAvailableItems(available);
+    if (!isExpanded) return;
+  
+    async function loadMenuItems() {
+      try {
+        const items = await getMenuItemsByMenuId(menu.id);
+        const safeItems = Array.isArray(items) ? items : [];
+  
+        setMenuItems(safeItems);
+  
+        const itemIds = new Set(safeItems.map(i => i.id));
+        setAvailableItems(allMenuItems.filter(i => !itemIds.has(i.id)));
+      } catch (error) {
+        console.error('Erro ao carregar itens do cardápio:', error);
+        setMenuItems([]);
+        setAvailableItems([]);
+      }
     }
-  }, [isExpanded, menu.id, allMenuItems]);
+  
+    loadMenuItems();
+  }, [isExpanded, menu.id, allMenuItems]);  
 
-  const handleAddItem = (itemId: number) => {
-    addItemToMenu(menu.id, itemId);
-    onUpdate();
-    
-    // Atualiza as listas localmente
-    const items = getMenuItemsByMenuId(menu.id);
-    setMenuItems(items);
-    const itemIds = new Set(items.map(i => i.id));
-    const available = allMenuItems.filter(i => !itemIds.has(i.id));
-    setAvailableItems(available);
-  };
+  const handleAddItem = async (itemId: number) => {
+    await addItemToMenu(menu.id, itemId);
+    await onUpdate();
+  
+    const items = await getMenuItemsByMenuId(menu.id);
+    const safeItems = Array.isArray(items) ? items : [];
+  
+    setMenuItems(safeItems);
+  
+    const itemIds = new Set(safeItems.map(i => i.id));
+    setAvailableItems(allMenuItems.filter(i => !itemIds.has(i.id)));
+  };  
 
-  const handleRemoveItem = (itemId: number) => {
-    if (confirm('Remover este item do cardápio?')) {
-      removeItemFromMenu(menu.id, itemId);
-      onUpdate();
-      
-      // Atualiza as listas localmente
-      const items = getMenuItemsByMenuId(menu.id);
-      setMenuItems(items);
-      const itemIds = new Set(items.map(i => i.id));
-      const available = allMenuItems.filter(i => !itemIds.has(i.id));
-      setAvailableItems(available);
-    }
-  };
+  const handleRemoveItem = async (itemId: number) => {
+    if (!confirm('Remover este item do cardápio?')) return;
+  
+    await removeItemFromMenu(menu.id, itemId);
+    await onUpdate();
+  
+    const items = await getMenuItemsByMenuId(menu.id);
+    const safeItems = Array.isArray(items) ? items : [];
+  
+    setMenuItems(safeItems);
+  
+    const itemIds = new Set(safeItems.map(i => i.id));
+    setAvailableItems(allMenuItems.filter(i => !itemIds.has(i.id)));
+  };  
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">

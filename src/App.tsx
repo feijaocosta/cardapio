@@ -2,18 +2,12 @@ import { useState, useEffect } from 'react';
 import { CustomerView } from './components/customer-view';
 import { AdminView } from './components/admin-view';
 import { Store, Settings } from 'lucide-react';
-import { initDatabase } from './lib/database';
+import { getMenus, saveOrder } from './lib/api';
 
 export default function App() {
   const [view, setView] = useState<'customer' | 'admin'>('customer');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    initDatabase().then(() => {
-      setIsLoading(false);
-    });
-  }, []);
+  const [isLoading] = useState(false);
 
   const handleOrderPlaced = () => {
     setRefreshTrigger(prev => prev + 1);
