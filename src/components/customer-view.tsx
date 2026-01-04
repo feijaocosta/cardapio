@@ -7,7 +7,7 @@ import {
   AVAILABLE_THEMES,
   type MenuItem, 
   type Menu 
-} from '../lib/api';
+} from '../../services/api';
 import { ShoppingCart, Plus, Minus, ChevronLeft, Image as ImageIcon } from 'lucide-react';
 
 interface CustomerViewProps {
@@ -22,39 +22,39 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [settings, setSettings] = useState({ showPrices: true, theme: 'orange' });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadInitialData() {
+    async function loadData() {
       try {
-        const loadedSettings = await getSettings();
-        const loadedMenus = await getActiveMenus();
-  
+        const [loadedSettings, loadedMenus] = await Promise.all([
+          getSettings(),
+          getActiveMenus()
+        ]);
         setSettings(loadedSettings);
-        setMenus(Array.isArray(loadedMenus) ? loadedMenus : []);
+        setMenus(loadedMenus);
       } catch (error) {
-        console.error('Erro ao carregar dados iniciais:', error);
-        setMenus([]);
+        console.error('Erro ao carregar dados:', error);
+      } finally {
+        setIsLoading(false);
       }
     }
-  
-    loadInitialData();
-  }, []);  
+    loadData();
+  }, []);
 
   useEffect(() => {
-    if (!selectedMenu) return;
-  
     async function loadMenuItems() {
-      try {
-        const items = await getMenuItemsByMenuId(selectedMenu.id);
-        setMenuItems(Array.isArray(items) ? items : []);
-      } catch (error) {
-        console.error('Erro ao carregar itens do cardápio:', error);
-        setMenuItems([]);
+      if (selectedMenu) {
+        try {
+          const items = await getMenuItemsByMenuId(selectedMenu.id);
+          setMenuItems(items);
+        } catch (error) {
+          console.error('Erro ao carregar itens do cardápio:', error);
+        }
       }
     }
-  
     loadMenuItems();
-  }, [selectedMenu]);  
+  }, [selectedMenu]);
 
   const updateQuantity = (itemId: number, change: number) => {
     setQuantities(prev => {
@@ -71,7 +71,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
     }, 0);
   };
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!customerName.trim()) {
@@ -93,20 +93,26 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
       return;
     }
 
-    addOrder({
-      customerName: customerName.trim(),
-      items: orderItems,
-      total: calculateTotal(),
-    });
+    try {
+      await addOrder({
+        customerName: customerName.trim(),
+        items: orderItems,
+        total: calculateTotal(),
+        menuId: selectedMenu?.id,
+      });
 
-    // Reset form
-    setCustomerName('');
-    setQuantities({});
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
-    
-    if (onOrderPlaced) {
-      onOrderPlaced();
+      // Reset form
+      setCustomerName('');
+      setQuantities({});
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      
+      if (onOrderPlaced) {
+        onOrderPlaced();
+      }
+    } catch (error) {
+      console.error('Erro ao criar pedido:', error);
+      alert('Erro ao criar pedido. Por favor, tente novamente.');
     }
   };
 
@@ -120,6 +126,19 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const hasItems = Object.values(quantities).some(q => q > 0);
 
   const theme = AVAILABLE_THEMES.find(t => t.id === settings.theme) || AVAILABLE_THEMES[0];
+
+  if (isLoading) {
+    return (
+      <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} p-6`}>
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando cardápios...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Menu Selection Screen
   if (!selectedMenu) {

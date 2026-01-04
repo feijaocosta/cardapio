@@ -17,7 +17,7 @@ import {
   type MenuItem, 
   type Order,
   type Menu 
-} from '../lib/api';
+} from '../../services/api';
 import { 
   Settings as SettingsIcon, 
   Plus, 
@@ -44,6 +44,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [menus, setMenus] = useState<Menu[]>([]);
   const [activeTab, setActiveTab] = useState<'orders' | 'items' | 'menus' | 'settings'>('orders');
   const [settings, setSettings] = useState({ showPrices: true, theme: 'orange' });
+  const [isLoading, setIsLoading] = useState(true);
   
   // New item form
   const [newItemName, setNewItemName] = useState('');
@@ -56,69 +57,65 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [newMenuLogo, setNewMenuLogo] = useState('');
   const [selectedMenuForEdit, setSelectedMenuForEdit] = useState<Menu | null>(null);
 
-  const safeOrders = Array.isArray(loadedOrders)
-  ? loadedOrders.map(order => ({
-      ...order,
-      items: Array.isArray(order.items) ? order.items : []
-    }))
-  : [];
-
   const loadData = async () => {
     try {
-      const [
-        loadedMenuItems,
-        loadedOrders,
-        loadedMenus,
-        loadedSettings
-      ] = await Promise.all([
+      const [items, ordersList, menusList, settingsData] = await Promise.all([
         getMenuItems(),
         getOrders(),
         getMenus(),
         getSettings()
       ]);
-  
-      setMenuItems(Array.isArray(loadedMenuItems) ? loadedMenuItems : []);
-      setOrders(safeOrders);
-      setMenus(Array.isArray(loadedMenus) ? loadedMenus : []);
-      setSettings(loadedSettings);
+      setMenuItems(items);
+      setOrders(ordersList);
+      setMenus(menusList);
+      setSettings(settingsData);
     } catch (error) {
-      console.error('Erro ao carregar dados administrativos:', error);
+      console.error('Erro ao carregar dados:', error);
     }
-  };  
+  };
 
   useEffect(() => {
-    loadData();
+    loadData().then(() => setIsLoading(false));
   }, [refreshTrigger]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+    
     if (!newItemName.trim() || !newItemPrice) {
       alert('Por favor, preencha nome e preço');
       return;
     }
-  
-    await addMenuItem({
-      name: newItemName.trim(),
-      price: parseFloat(newItemPrice),
-      description: newItemDescription.trim() || undefined,
-    });
-  
-    setNewItemName('');
-    setNewItemPrice('');
-    setNewItemDescription('');
-  
-    await loadData();
-  };  
 
-  const handleRemoveItem = (id: number) => {
-    if (confirm('Deseja remover este item? Ele será removido de todos os cardápios.')) {
-      removeMenuItem(id);
-      loadData();
+    try {
+      await addMenuItem({
+        name: newItemName.trim(),
+        price: parseFloat(newItemPrice),
+        description: newItemDescription.trim() || undefined,
+      });
+
+      setNewItemName('');
+      setNewItemPrice('');
+      setNewItemDescription('');
+      await loadData();
+    } catch (error) {
+      console.error('Erro ao adicionar item:', error);
+      alert('Erro ao adicionar item. Por favor, tente novamente.');
     }
   };
 
-  const handleAddMenu = (e: React.FormEvent) => {
+  const handleRemoveItem = async (id: number) => {
+    if (confirm('Deseja remover este item? Ele será removido de todos os cardápios.')) {
+      try {
+        await removeMenuItem(id);
+        await loadData();
+      } catch (error) {
+        console.error('Erro ao remover item:', error);
+        alert('Erro ao remover item. Por favor, tente novamente.');
+      }
+    }
+  };
+
+  const handleAddMenu = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newMenuName.trim()) {
@@ -126,35 +123,57 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
       return;
     }
 
-    addMenu({
-      name: newMenuName.trim(),
-      description: newMenuDescription.trim() || undefined,
-      logo: newMenuLogo.trim() || undefined,
-      active: true,
-    });
+    try {
+      await addMenu({
+        name: newMenuName.trim(),
+        description: newMenuDescription.trim() || undefined,
+        logo: newMenuLogo.trim() || undefined,
+        active: true,
+      });
 
-    setNewMenuName('');
-    setNewMenuDescription('');
-    setNewMenuLogo('');
-    loadData();
-  };
-
-  const handleRemoveMenu = (id: number) => {
-    if (confirm('Deseja remover este cardápio?')) {
-      removeMenu(id);
-      loadData();
+      setNewMenuName('');
+      setNewMenuDescription('');
+      setNewMenuLogo('');
+      await loadData();
+    } catch (error) {
+      console.error('Erro ao adicionar cardápio:', error);
+      alert('Erro ao adicionar cardápio. Por favor, tente novamente.');
     }
   };
 
-  const handleToggleMenuActive = (menu: Menu) => {
-    updateMenu(menu.id, { active: !menu.active });
-    loadData();
+  const handleRemoveMenu = async (id: number) => {
+    if (confirm('Deseja remover este cardápio?')) {
+      try {
+        await removeMenu(id);
+        await loadData();
+      } catch (error) {
+        console.error('Erro ao remover cardápio:', error);
+        alert('Erro ao remover cardápio. Por favor, tente novamente.');
+      }
+    }
   };
 
-  const handleUpdateSettings = (key: 'showPrices' | 'theme', value: any) => {
+  const handleToggleMenuActive = async (menu: Menu) => {
+    try {
+      await updateMenu(menu.id, { active: !menu.active });
+      await loadData();
+    } catch (error) {
+      console.error('Erro ao atualizar cardápio:', error);
+      alert('Erro ao atualizar cardápio. Por favor, tente novamente.');
+    }
+  };
+
+  const handleUpdateSettings = async (key: 'showPrices' | 'theme', value: any) => {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
-    updateSettings({ [key]: value });
+    try {
+      await updateSettings({ [key]: value });
+    } catch (error) {
+      console.error('Erro ao atualizar configurações:', error);
+      // Reverte a mudança local em caso de erro
+      setSettings(settings);
+      alert('Erro ao salvar configurações. Por favor, tente novamente.');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -550,54 +569,58 @@ function MenuCard({ menu, allMenuItems, onToggleActive, onRemove, onUpdate }: Me
   const [availableItems, setAvailableItems] = useState<MenuItem[]>([]);
 
   useEffect(() => {
-    if (!isExpanded) return;
-  
     async function loadMenuItems() {
-      try {
-        const items = await getMenuItemsByMenuId(menu.id);
-        const safeItems = Array.isArray(items) ? items : [];
-  
-        setMenuItems(safeItems);
-  
-        const itemIds = new Set(safeItems.map(i => i.id));
-        setAvailableItems(allMenuItems.filter(i => !itemIds.has(i.id)));
-      } catch (error) {
-        console.error('Erro ao carregar itens do cardápio:', error);
-        setMenuItems([]);
-        setAvailableItems([]);
+      if (isExpanded) {
+        try {
+          const items = await getMenuItemsByMenuId(menu.id);
+          setMenuItems(items);
+          
+          const itemIds = new Set(items.map(i => i.id));
+          const available = allMenuItems.filter(i => !itemIds.has(i.id));
+          setAvailableItems(available);
+        } catch (error) {
+          console.error('Erro ao carregar itens do cardápio:', error);
+        }
       }
     }
-  
     loadMenuItems();
-  }, [isExpanded, menu.id, allMenuItems]);  
+  }, [isExpanded, menu.id, allMenuItems]);
 
   const handleAddItem = async (itemId: number) => {
-    await addItemToMenu(menu.id, itemId);
-    await onUpdate();
-  
-    const items = await getMenuItemsByMenuId(menu.id);
-    const safeItems = Array.isArray(items) ? items : [];
-  
-    setMenuItems(safeItems);
-  
-    const itemIds = new Set(safeItems.map(i => i.id));
-    setAvailableItems(allMenuItems.filter(i => !itemIds.has(i.id)));
-  };  
+    try {
+      await addItemToMenu(menu.id, itemId);
+      await onUpdate();
+      
+      // Atualiza as listas localmente
+      const items = await getMenuItemsByMenuId(menu.id);
+      setMenuItems(items);
+      const itemIds = new Set(items.map(i => i.id));
+      const available = allMenuItems.filter(i => !itemIds.has(i.id));
+      setAvailableItems(available);
+    } catch (error) {
+      console.error('Erro ao adicionar item ao cardápio:', error);
+      alert('Erro ao adicionar item. Por favor, tente novamente.');
+    }
+  };
 
   const handleRemoveItem = async (itemId: number) => {
-    if (!confirm('Remover este item do cardápio?')) return;
-  
-    await removeItemFromMenu(menu.id, itemId);
-    await onUpdate();
-  
-    const items = await getMenuItemsByMenuId(menu.id);
-    const safeItems = Array.isArray(items) ? items : [];
-  
-    setMenuItems(safeItems);
-  
-    const itemIds = new Set(safeItems.map(i => i.id));
-    setAvailableItems(allMenuItems.filter(i => !itemIds.has(i.id)));
-  };  
+    if (confirm('Remover este item do cardápio?')) {
+      try {
+        await removeItemFromMenu(menu.id, itemId);
+        await onUpdate();
+        
+        // Atualiza as listas localmente
+        const items = await getMenuItemsByMenuId(menu.id);
+        setMenuItems(items);
+        const itemIds = new Set(items.map(i => i.id));
+        const available = allMenuItems.filter(i => !itemIds.has(i.id));
+        setAvailableItems(available);
+      } catch (error) {
+        console.error('Erro ao remover item do cardápio:', error);
+        alert('Erro ao remover item. Por favor, tente novamente.');
+      }
+    }
+  };
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
