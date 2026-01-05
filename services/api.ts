@@ -88,7 +88,7 @@ export const AVAILABLE_THEMES: Theme[] = [
 ];
 
 // Configuração da URL base da API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 // Helper para fazer requisições
 async function fetchAPI<T>(
@@ -111,33 +111,33 @@ async function fetchAPI<T>(
   return response.json();
 }
 
-// ==================== Menu Items ====================
+// ==================== Itens do Cardápio ====================
 
 export async function getMenuItems(): Promise<MenuItem[]> {
-  return fetchAPI<MenuItem[]>('/menu-items');
+  return fetchAPI<MenuItem[]>('/items');
 }
 
 export async function addMenuItem(item: Omit<MenuItem, 'id'>): Promise<MenuItem> {
-  return fetchAPI<MenuItem>('/menu-items', {
+  return fetchAPI<MenuItem>('/items', {
     method: 'POST',
     body: JSON.stringify(item),
   });
 }
 
 export async function updateMenuItem(id: number, item: Partial<Omit<MenuItem, 'id'>>): Promise<void> {
-  await fetchAPI(`/menu-items/${id}`, {
+  await fetchAPI(`/items/${id}`, {
     method: 'PUT',
     body: JSON.stringify(item),
   });
 }
 
 export async function removeMenuItem(id: number): Promise<void> {
-  await fetchAPI(`/menu-items/${id}`, {
+  await fetchAPI(`/items/${id}`, {
     method: 'DELETE',
   });
 }
 
-// ==================== Orders ====================
+// ==================== Pedidos ====================
 
 export async function getOrders(): Promise<Order[]> {
   return fetchAPI<Order[]>('/orders');
@@ -150,7 +150,14 @@ export async function addOrder(order: Omit<Order, 'id' | 'date'>): Promise<Order
   });
 }
 
-// ==================== Menus ====================
+export async function updateOrderStatus(orderId: number, status: string): Promise<void> {
+  await fetchAPI(`/orders/${orderId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+}
+
+// ==================== Cardápios ====================
 
 export async function getMenus(): Promise<Menu[]> {
   return fetchAPI<Menu[]>('/menus');
@@ -197,7 +204,7 @@ export async function removeItemFromMenu(menuId: number, itemId: number): Promis
   });
 }
 
-// ==================== Settings ====================
+// ==================== Configurações ====================
 
 export async function getSettings(): Promise<Settings> {
   return fetchAPI<Settings>('/settings');
@@ -212,8 +219,6 @@ export async function updateSettings(settings: Partial<Settings>): Promise<void>
 
 // ==================== Inicialização ====================
 
-// Função de inicialização que pode ser chamada ao carregar o app
-// (não faz nada no frontend, mas mantém compatibilidade com código existente)
 export async function initDatabase(): Promise<void> {
   // Verifica se a API está acessível
   try {
