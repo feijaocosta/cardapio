@@ -27,6 +27,7 @@ export interface Menu {
   name: string;
   description?: string;
   logo?: string;
+  logo_filename?: string;
   active: boolean;
 }
 
@@ -88,7 +89,7 @@ export const AVAILABLE_THEMES: Theme[] = [
 ];
 
 // Configuração da URL base da API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
 
 // Helper para fazer requisições
 async function fetchAPI<T>(
@@ -174,11 +175,67 @@ export async function addMenu(menu: Omit<Menu, 'id'>): Promise<Menu> {
   });
 }
 
-export async function updateMenu(id: number, menu: Partial<Omit<Menu, 'id'>>): Promise<void> {
-  await fetchAPI(`/menus/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(menu),
+export async function addMenuWithLogo(
+  name: string,
+  description: string | undefined,
+  active: boolean,
+  logoFile: File | null
+): Promise<Menu> {
+  const formData = new FormData();
+  formData.append('name', name);
+  if (description) {
+    formData.append('description', description);
+  }
+  formData.append('active', String(active));
+  if (logoFile) {
+    formData.append('logo', logoFile);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/menus`, {
+    method: 'POST',
+    body: formData,
   });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`API Error: ${response.status} - ${error}`);
+  }
+
+  return response.json();
+}
+
+export async function updateMenu(
+  id: number,
+  name?: string,
+  description?: string,
+  active?: boolean,
+  logoFile?: File | null
+): Promise<Menu> {
+  const formData = new FormData();
+  if (name !== undefined) {
+    formData.append('name', name);
+  }
+  if (description !== undefined) {
+    formData.append('description', description);
+  }
+  if (active !== undefined) {
+    formData.append('active', String(active));
+  }
+  if (logoFile) {
+    formData.append('logo', logoFile);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/menus/${id}`, {
+    method: 'PUT',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`API Error: ${response.status} - ${error}`);
+  }
+
+  return response.json();
 }
 
 export async function removeMenu(id: number): Promise<void> {

@@ -388,20 +388,41 @@ Significa que migration não foi aplicada:
 
 1. **Criar arquivo de migration:**
    ```bash
-   touch server/migrations/003_add_users_table.sql
+   touch server/migrations/003_add_menus_description.sql
    ```
 
 2. **Escrever SQL:**
    ```sql
-   CREATE TABLE users (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     name TEXT NOT NULL,
-     email TEXT UNIQUE NOT NULL
-   );
+   ALTER TABLE menus ADD COLUMN description TEXT;
    ```
 
 3. **Reiniciar servidor:**
    ```bash
+   npm run dev
+   ```
+
+---
+
+## ⚠️ Se a Migration Não Rodar
+
+1. **Verifique se o arquivo existe:**
+   ```bash
+   ls -la server/migrations/
+   ```
+
+2. **Limpe os locks do SQLite:**
+   ```bash
+   rm -f server/database.sqlite-shm server/database.sqlite-wal
+   ```
+
+3. **Reinicie o servidor:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Se ainda não funcionar, delete o banco e deixe criar do zero:**
+   ```bash
+   rm -f server/database.sqlite
    npm run dev
    ```
 

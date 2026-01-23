@@ -644,5 +644,560 @@ function sanitizeInput(input: string): string {
 
 ---
 
+## 🏗️ Arquitetura do Backend (Refatoração - Clean Architecture + DDD Lite)
+
+O backend foi refatorado seguindo **Clean Architecture** com princípios de **DDD Lite** para melhor escalabilidade e testabilidade.
+
+### Camadas Arquiteturais
+
+#### 1. **Core Layer** (`core/`)
+Componentes fundamentais reutilizáveis em toda aplicação:
+
+```
+core/
+├── errors/
+│   └── AppError.ts          # Classe base para erros da aplicação
+│       ├── AppError         # Erro genérico (status, operacional)
+│       ├── ValidationError  # Erro de validação (400)
+│       └── NotFoundError    # Recurso não encontrado (404)
+│
+├── types/
+│   └── index.ts             # Tipos globais
+│       ├── IEntity
+│       ├── ICreateDTO
+│       ├── IResponseDTO
+│       └── IPaginatedResponse
+│
+└── utils/
+    └── Validadores e helpers
+```
+
+**Exemplo de Uso:**
+```typescript
+import { ValidationError, NotFoundError } from '../../core/errors/AppError';
+
+if (!name) {
+  throw new ValidationError('Nome é obrigatório');
+}
+
+const menu = await repository.findById(id);
+if (!menu) {
+  throw new NotFoundError('Menu', id);
+}
+```
+
+---
+
+#### 2. **Domain Layer** (`domain/`)
+Lógica de negócio pura e independente de frameworks:
+
+```
+domain/
+├── menus/
+│   ├── Menu.ts              # Entity Menu
+│   ├── MenuItem.ts          # Entity MenuItem
+│   ├── MenuRepository.ts    # Interface (contrato)
+│   ├── MenuService.ts       # Casos de uso (CRUD + lógica)
+│   └── index.ts
+│
+├── orders/
+│   ├── Order.ts             # Entity Order
+│   ├── OrderItem.ts         # Value Object
+│   ├── OrderRepository.ts   # Interface
+│   ├── OrderService.ts      # Casos de uso
+│   └── index.ts
+│
+└── settings/
+    ├── Setting.ts           # Entity Setting
+    ├── SettingRepository.ts # Interface
+    ├── SettingService.ts    # Casos de uso
+    └── index.ts
+```
+
+**Características:**
+- Entities com validação no construtor
+- Factory methods para criar instâncias
+- Services com lógica de negócio
+- Repository interfaces (abstraem banco de dados)
+
+**Exemplo de Entity:**
+```typescript
+export class Menu {
+  constructor(
+    readonly id: number | null,
+    readonly name: string,
+    readonly description: string | null,
+    readonly active: boolean
+  ) {
+    this.validate(); // Validação no construtor
+  }
+
+  private validate(): void {
+    if (!this.name?.trim()) {
+      throw new ValidationError('Nome obrigatório');
+    }
+  }
+
+  // Factory method
+  static create(name: string, description?: string): Menu {
+    return new Menu(null, name, description || null, true);
+  }
+
+  // Métodos de negócio
+  deactivate(): Menu {
+    return new Menu(this.id, this.name, this.description, false);
+  }
+}
+```
+
+---
+
+#### 3. **Application Layer** (`application/`)
+Orquestra o fluxo de requisição e converte dados:
+
+```
+application/
+├── dtos/                    # Data Transfer Objects
+│   ├── menu/
+│   │   ├── CreateMenuDTO.ts
+│   │   ├── UpdateMenuDTO.ts
+│   │   └── MenuResponseDTO.ts
+│   ├── item/
+│   ├── order/
+│   └── setting/
+│
+├── validators/              # Validadores reutilizáveis
+├── queries/                 # (futuro) CQRS queries
+└── usecases/               # (futuro) Use cases orchestrators
+```
+
+**Responsabilidades DTOs:**
+- Validar entrada do cliente
+- Converter Entity → JSON
+- Formatar respostas
+
+**Exemplo DTO:**
+```typescript
+export class CreateMenuDTO {
+  name: string;
+  description?: string;
+
+  constructor(data: any) {
+    this.name = data?.name?.trim() || '';
+    this.description = data?.description?.trim() || '';
+    this.validate();
+  }
+
+  private validate(): void {
+    if (!this.name) {
+      throw new ValidationError('Nome obrigatório');
+    }
+  }
+}
+
+export class MenuResponseDTO {
+  id: number;
+  name: string;
+  description: string | null;
+  active: boolean;
+
+  static from(entity: Menu): MenuResponseDTO {
+    return new MenuResponseDTO({
+      id: entity.id!,
+      name: entity.name,
+      description: entity.description,
+      active: entity.active,
+    });
+  }
+}
+```
+
+---
+
+#### 4. **Infrastructure Layer** (`infrastructure/`)
+Detalhes técnicos: banco de dados, HTTP, frameworks:
+
+```
+infrastructure/
+├── database/
+│   └── repositories/        # Implementações concretas
+│       ├── MenuRepository.ts
+│       ├── ItemRepository.ts
+│       ├── OrderRepository.ts
+│       └── SettingRepository.ts
+│
+└── http/
+    ├── middleware/
+    │   ├── asyncHandler.ts  # Wrapper para tratamento de erros
+    │   ├── errorHandler.ts  # Middleware global de erro
+    │   └── upload.ts        # Upload de arquivos
+    │
+    └── routes/              # Rota refatoradas
+        ├── menus.ts
+        ├── items.ts
+        ├── orders.ts
+        └── settings.ts
+```
+
+**Repository Concreto:**
+```typescript
+export class MenuRepository implements IMenuRepository {
+  constructor(private db: Database) {}
+
+  async save(menu: Menu): Promise<Menu> {
+    if (menu.id) {
+      // Update
+      await this.db.run(
+        'UPDATE menus SET name = ?, active = ? WHERE id = ?',
+        [menu.name, menu.active ? 1 : 0, menu.id]
+      );
+    } else {
+      // Insert
+      const result = await this.db.run(
+        'INSERT INTO menus (name, active) VALUES (?, ?)',
+        [menu.name, menu.active ? 1 : 0]
+      );
+      return new Menu(result.lastID as number, menu.name, null, true);
+    }
+    return menu;
+  }
+
+  async findById(id: number): Promise<Menu | null> {
+    const row = await this.db.get('SELECT * FROM menus WHERE id = ?', id);
+    return row ? this.toDomain(row) : null;
+  }
+
+  private toDomain(row: any): Menu {
+    return new Menu(row.id, row.name, row.description || null, row.active === 1);
+  }
+}
+```
+
+---
+
+#### 5. **Container** (`container/`)
+Injeção de dependências simples:
+
+```typescript
+const container = new Container();
+
+// Registrar singleton (uma instância para toda aplicação)
+container.registerSingleton('menuRepository', () => 
+  new MenuRepository(db)
+);
+
+container.registerSingleton('menuService', () => 
+  new MenuService(container.get('menuRepository'))
+);
+
+// Usar
+const menuService = container.get('menuService');
+```
+
+---
+
+### Fluxo de Requisição (End-to-End)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. HTTP Request: POST /api/menus                           │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 2. Route Handler (routes/menus.ts)                         │
+│    - Captura request                                        │
+│    - Orquestra fluxo                                        │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 3. asyncHandler Middleware                                 │
+│    - Captura Promise rejections                            │
+│    - Passa erros para errorHandler                         │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 4. DTO Validation (CreateMenuDTO)                          │
+│    - Valida entrada                                         │
+│    - Lança ValidationError se inválido                     │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 5. MenuService (Service)                                   │
+│    - Lógica de negócio                                     │
+│    - Cria Entity Menu                                      │
+│    - Chama Repository.save()                               │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 6. MenuRepository (Implementation)                         │
+│    - Executa SQL INSERT                                    │
+│    - Retorna Menu com novo ID                             │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 7. Response DTO (MenuResponseDTO.from())                   │
+│    - Converte Entity → DTO                                 │
+│    - Formata resposta                                      │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 8. HTTP Response 201 + JSON                                │
+│    { id: 1, name: "Menu", active: true }                  │
+└─────────────────────────────────────────────────────────────┘
+
+Se houver erro em qualquer etapa:
+  ↓
+  errorHandler Middleware
+  ↓
+  Formata erro com status code
+  ↓
+  HTTP Error Response
+```
+
+---
+
+### Como Adicionar Nova Entidade
+
+Segue os mesmos padrões. Exemplo adicionando entidade "Promoção":
+
+#### Passo 1: Criar Entity
+
+```typescript
+// domain/promotions/Promotion.ts
+export class Promotion {
+  constructor(
+    readonly id: number | null,
+    readonly name: string,
+    readonly discount: number,
+    readonly active: boolean
+  ) {
+    this.validate();
+  }
+
+  private validate(): void {
+    if (!this.name) throw new ValidationError('Nome obrigatório');
+    if (this.discount <= 0) throw new ValidationError('Desconto deve ser > 0');
+  }
+
+  static create(name: string, discount: number): Promotion {
+    return new Promotion(null, name, discount, true);
+  }
+}
+```
+
+#### Passo 2: Criar Repository Interface
+
+```typescript
+// domain/promotions/PromotionRepository.ts
+import { Promotion } from './Promotion';
+
+export interface IPromotionRepository {
+  save(promotion: Promotion): Promise<Promotion>;
+  findById(id: number): Promise<Promotion | null>;
+  findAll(): Promise<Promotion[]>;
+  delete(id: number): Promise<void>;
+}
+```
+
+#### Passo 3: Criar Service
+
+```typescript
+// domain/promotions/PromotionService.ts
+export class PromotionService {
+  constructor(private repository: IPromotionRepository) {}
+
+  async createPromotion(dto: CreatePromotionDTO): Promise<PromotionResponseDTO> {
+    const promotion = Promotion.create(dto.name, dto.discount);
+    const saved = await this.repository.save(promotion);
+    return PromotionResponseDTO.from(saved);
+  }
+
+  // ... outros métodos CRUD
+}
+```
+
+#### Passo 4: Criar DTOs
+
+```typescript
+// application/dtos/promotion/CreatePromotionDTO.ts
+export class CreatePromotionDTO {
+  name: string;
+  discount: number;
+
+  constructor(data: any) {
+    this.name = data?.name?.trim() || '';
+    this.discount = data?.discount || 0;
+    this.validate();
+  }
+
+  private validate(): void {
+    if (!this.name) throw new ValidationError('Nome obrigatório');
+    if (this.discount <= 0) throw new ValidationError('Desconto inválido');
+  }
+}
+
+export class PromotionResponseDTO {
+  id: number;
+  name: string;
+  discount: number;
+  active: boolean;
+
+  static from(entity: Promotion): PromotionResponseDTO {
+    return new PromotionResponseDTO({
+      id: entity.id!,
+      name: entity.name,
+      discount: entity.discount,
+      active: entity.active,
+    });
+  }
+}
+```
+
+#### Passo 5: Criar Repository Implementação
+
+```typescript
+// infrastructure/database/repositories/PromotionRepository.ts
+export class PromotionRepository implements IPromotionRepository {
+  constructor(private db: Database) {}
+
+  async save(promotion: Promotion): Promise<Promotion> {
+    // ... implementar INSERT/UPDATE
+  }
+
+  async findById(id: number): Promise<Promotion | null> {
+    // ... implementar SELECT
+  }
+
+  // ... outros métodos
+}
+```
+
+#### Passo 6: Criar Rotas
+
+```typescript
+// infrastructure/http/routes/promotions.ts
+const router = express.Router();
+let promotionService: PromotionService;
+
+export function setPromotionService(service: PromotionService) {
+  promotionService = service;
+}
+
+router.get('/', asyncHandler(async (req, res) => {
+  const promotions = await promotionService.getAllPromotions();
+  res.json(promotions);
+}));
+
+router.post('/', asyncHandler(async (req, res) => {
+  const dto = new CreatePromotionDTO(req.body);
+  const promotion = await promotionService.createPromotion(dto);
+  res.status(201).json(promotion);
+}));
+
+export default router;
+```
+
+#### Passo 7: Registrar no Container
+
+```typescript
+// src/index.ts
+container.registerSingleton('promotionRepository', () => 
+  new PromotionRepository(db)
+);
+
+container.registerSingleton('promotionService', () => 
+  new PromotionService(container.get('promotionRepository'))
+);
+
+// Injetar nas rotas
+setPromotionService(container.get('promotionService'));
+app.use('/api/promotions', promotionsRouter);
+```
+
+---
+
+### Benefícios da Arquitetura
+
+✅ **Testabilidade**: Services testáveis sem banco de dados  
+✅ **Escalabilidade**: Adicionar novas entidades é padrão  
+✅ **Manutenibilidade**: Código organizado e bem estruturado  
+✅ **Desacoplamento**: Mudanças no banco não afetam services  
+✅ **Reusabilidade**: DTOs e Services reutilizáveis  
+✅ **SOLID Principles**: SRP, OCP, DIP, LSP, ISP respeitados  
+
+---
+
+## 🧪 Testes Automatizados
+
+### Setup
+
+```bash
+# Instalar dependências
+npm install --save-dev jest ts-jest @types/jest supertest @types/supertest
+
+# Scripts disponíveis
+npm test                    # Rodar todos os testes
+npm run test:watch        # Rodar em modo watch
+npm run test:coverage     # Gerar relatório de cobertura
+npm run test:integration  # Rodar apenas testes de integração
+```
+
+### Testes de Entidade
+
+```typescript
+// src/__tests__/domain/menus/Menu.test.ts
+describe('Menu Entity', () => {
+  it('deve criar menu válido', () => {
+    const menu = new Menu(1, 'Menu', null, true);
+    expect(menu.name).toBe('Menu');
+  });
+
+  it('deve lançar erro se nome vazio', () => {
+    expect(() => {
+      new Menu(1, '', null, true);
+    }).toThrow(ValidationError);
+  });
+});
+```
+
+### Testes de Service
+
+```typescript
+// src/__tests__/domain/menus/MenuService.test.ts
+describe('MenuService', () => {
+  let service: MenuService;
+  let repository: MockMenuRepository;
+
+  beforeEach(() => {
+    repository = new MockMenuRepository();
+    service = new MenuService(repository);
+  });
+
+  it('deve criar menu novo', async () => {
+    const dto = new CreateMenuDTO({ name: 'Menu' });
+    const result = await service.createMenu(dto);
+    expect(result.name).toBe('Menu');
+  });
+});
+```
+
+### Testes de Integração
+
+```typescript
+// src/__tests__/integration/api.integration.test.ts
+describe('API Integration', () => {
+  it('deve criar menu via API', async () => {
+    const response = await request(app)
+      .post('/api/menus')
+      .send({ name: 'Menu', description: 'Desc' });
+    
+    expect(response.status).toBe(201);
+    expect(response.body.id).toBeDefined();
+  });
+});
+```
+
+---
+
 **Versão**: 2.0  
 **Última Atualização**: Janeiro 2026

@@ -1,29 +1,38 @@
-import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
-import menusRouter from './routes/menus';
-import ordersRouter from './routes/orders';
-import itemsRouter from './routes/items';
-import healthRouter from './routes/health';
-import settingsRouter from './routes/settings';
+import { initializeDatabase } from './db/database';
+import { setupContainer } from './container/setup';
+import { createApp } from './app';
 
 dotenv.config();
 
-const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
-app.use(cors());
-app.use(express.json());
+async function start() {
+  try {
+    console.log('🚀 Iniciando servidor Cardápio...\n');
 
-// Rotas
-app.use('/menus', menusRouter);
-app.use('/orders', ordersRouter);
-app.use('/items', itemsRouter);
-app.use('/health', healthRouter);
-app.use('/settings', settingsRouter);
+    // 1. Inicializar banco de dados
+    console.log('📊 Inicializando banco de dados...');
+    const db = await initializeDatabase();
 
-// Iniciar o servidor
-app.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
-});
+    // 2. Configurar container de DI
+    console.log('🔧 Configurando injeção de dependências...');
+    const container = setupContainer(db);
+
+    // 3. Criar aplicação Express
+    console.log('🏗️  Criando aplicação Express...');
+    const app = createApp(container);
+
+    // 4. Iniciar servidor
+    app.listen(PORT, () => {
+      console.log(`\n✨ Servidor rodando em http://localhost:${PORT}`);
+      console.log(`📍 Health check: http://localhost:${PORT}/health`);
+      console.log(`📚 API Base: http://localhost:${PORT}/api\n`);
+    });
+  } catch (error: any) {
+    console.error('❌ Falha ao iniciar servidor:', error.message);
+    process.exit(1);
+  }
+}
+
+start();

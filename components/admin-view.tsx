@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getMenuItems, addMenuItem, removeMenuItem, getOrders, type MenuItem, type Order } from '../lib/storage';
-import { Settings, Plus, Trash2, ShoppingBag, Clock, User, Package } from 'lucide-react';
+import { getMenuItems, addMenuItem, removeMenuItem, getOrders, getMenus, addMenuWithLogo, removeMenu, type MenuItem, type Order, type Menu } from '../services/api';
+import { Settings, Plus, Trash2, ShoppingBag, Clock, User, Package, X } from 'lucide-react';
 
 interface AdminViewProps {
   refreshTrigger?: number;
@@ -9,16 +9,32 @@ interface AdminViewProps {
 export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<'menu' | 'orders'>('orders');
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [activeTab, setActiveTab] = useState<'menus' | 'menu' | 'orders'>('orders');
   
   // New item form
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemDescription, setNewItemDescription] = useState('');
 
-  const loadData = () => {
-    setMenuItems(getMenuItems());
-    setOrders(getOrders());
+  // New menu form
+  const [newMenuName, setNewMenuName] = useState('');
+  const [newMenuDescription, setNewMenuDescription] = useState('');
+  const [newMenuActive, setNewMenuActive] = useState(true);
+  const [newMenuLogo, setNewMenuLogo] = useState<File | null>(null);
+  const [menuLogoPreview, setMenuLogoPreview] = useState<string | null>(null);
+  const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+
+  const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
+
+  const loadData = async () => {
+    try {
+      setMenuItems(await getMenuItems());
+      setOrders(await getOrders());
+      setMenus(await getMenus());
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    }
   };
 
   useEffect(() => {
@@ -45,11 +61,85 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
     loadData();
   };
 
-  const handleRemoveItem = (id: string) => {
+  const handleRemoveItem = (id: number) => {
     if (confirm('Deseja remover este item do cardápio?')) {
       removeMenuItem(id);
       loadData();
     }
+  };
+
+  const handleMenuLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validar tamanho (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Arquivo muito grande. Máximo 5MB.');
+        return;
+      }
+
+      // Validar tipo
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        alert('Formato inválido. Use JPEG, PNG ou WebP.');
+        return;
+      }
+
+      setNewMenuLogo(file);
+
+      // Criar preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setMenuLogoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddMenu = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newMenuName.trim()) {
+      alert('Por favor, preencha o nome do cardápio');
+      return;
+    }
+
+    setIsLoadingMenu(true);
+    try {
+      await addMenuWithLogo(
+        newMenuName.trim(),
+        newMenuDescription.trim() || undefined,
+        newMenuActive,
+        newMenuLogo
+      );
+
+      setNewMenuName('');
+      setNewMenuDescription('');
+      setNewMenuActive(true);
+      setNewMenuLogo(null);
+      setMenuLogoPreview(null);
+      loadData();
+    } catch (error) {
+      console.error('Erro ao criar cardápio:', error);
+      alert('Erro ao criar cardápio. Tente novamente.');
+    } finally {
+      setIsLoadingMenu(false);
+    }
+  };
+
+  const handleRemoveMenu = (id: number) => {
+    if (confirm('Deseja remover este cardápio?')) {
+      removeMenu(id);
+      loadData();
+    }
+  };
+
+  const getMenuLogoUrl = (menu: Menu) => {
+    if (menu.logo_filename) {
+      return `${API_BASE_URL}/uploads/${menu.logo_filename}`;
+    }
+    if (menu.logo) {
+      return menu.logo;
+    }
+    return null;
   };
 
   const formatDate = (dateString: string) => {
@@ -73,10 +163,10 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
           </h1>
 
           {/* Tabs */}
-          <div className="flex gap-4 mb-6 border-b">
+          <div className="flex gap-4 mb-6 border-b overflow-x-auto">
             <button
               onClick={() => setActiveTab('orders')}
-              className={`pb-3 px-4 transition-colors ${
+              className={`pb-3 px-4 transition-colors whitespace-nowrap ${
                 activeTab === 'orders'
                   ? 'border-b-2 border-slate-800 text-slate-800'
                   : 'text-gray-500 hover:text-slate-800'
@@ -88,8 +178,21 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
               </div>
             </button>
             <button
+              onClick={() => setActiveTab('menus')}
+              className={`pb-3 px-4 transition-colors whitespace-nowrap ${
+                activeTab === 'menus'
+                  ? 'border-b-2 border-slate-800 text-slate-800'
+                  : 'text-gray-500 hover:text-slate-800'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Cardápios ({menus.length})
+              </div>
+            </button>
+            <button
               onClick={() => setActiveTab('menu')}
-              className={`pb-3 px-4 transition-colors ${
+              className={`pb-3 px-4 transition-colors whitespace-nowrap ${
                 activeTab === 'menu'
                   ? 'border-b-2 border-slate-800 text-slate-800'
                   : 'text-gray-500 hover:text-slate-800'
@@ -97,7 +200,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
             >
               <div className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
-                Cardápio ({menuItems.length})
+                Itens ({menuItems.length})
               </div>
             </button>
           </div>
@@ -157,10 +260,162 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
             </div>
           )}
 
-          {/* Menu Tab */}
+          {/* Menus Tab */}
+          {activeTab === 'menus' && (
+            <div>
+              <h2 className="text-slate-700 mb-4">Gerenciar Cardápios</h2>
+
+              {/* Add Menu Form */}
+              <form onSubmit={handleAddMenu} className="bg-slate-50 rounded-lg p-6 mb-6">
+                <h3 className="text-slate-700 mb-4">Adicionar Novo Cardápio</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-gray-700 mb-2 text-sm">
+                      Nome do Cardápio *
+                    </label>
+                    <input
+                      type="text"
+                      value={newMenuName}
+                      onChange={(e) => setNewMenuName(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      placeholder="Ex: Cardápio Principal"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 mb-2 text-sm">
+                      Descrição
+                    </label>
+                    <input
+                      type="text"
+                      value={newMenuDescription}
+                      onChange={(e) => setNewMenuDescription(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      placeholder="Descrição do cardápio"
+                    />
+                  </div>
+                </div>
+
+                {/* Logo Upload */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 mb-2 text-sm">
+                    Logo/Imagem do Cardápio
+                  </label>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleMenuLogoChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      />
+                      <p className="text-gray-500 text-xs mt-1">
+                        JPEG, PNG ou WebP. Máximo 5MB.
+                      </p>
+                    </div>
+                    {menuLogoPreview && (
+                      <div className="relative">
+                        <img
+                          src={menuLogoPreview}
+                          alt="Preview"
+                          className="w-24 h-24 object-cover rounded-lg border border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewMenuLogo(null);
+                            setMenuLogoPreview(null);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-4 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="menuActive"
+                    checked={newMenuActive}
+                    onChange={(e) => setNewMenuActive(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="menuActive" className="text-gray-700 text-sm">
+                    Cardápio ativo
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoadingMenu}
+                  className="bg-slate-700 hover:bg-slate-800 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  {isLoadingMenu ? 'Criando...' : 'Adicionar Cardápio'}
+                </button>
+              </form>
+
+              {/* Menus List */}
+              <div className="space-y-3">
+                {menus.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                    <p>Nenhum cardápio criado ainda</p>
+                  </div>
+                ) : (
+                  menus.map(menu => (
+                    <div
+                      key={menu.id}
+                      className="bg-white border border-slate-200 rounded-lg p-4 flex items-start justify-between hover:shadow-md transition-shadow gap-4"
+                    >
+                      <div className="flex gap-4 flex-1 min-w-0">
+                        {getMenuLogoUrl(menu) && (
+                          <img
+                            src={getMenuLogoUrl(menu)!}
+                            alt={menu.name}
+                            className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-gray-900 font-medium">{menu.name}</h3>
+                          {menu.description && (
+                            <p className="text-gray-600 text-sm">{menu.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-2">
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full ${
+                                menu.active
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {menu.active ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveMenu(menu.id)}
+                        className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                        title="Remover cardápio"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Menu Items Tab */}
           {activeTab === 'menu' && (
             <div>
-              <h2 className="text-slate-700 mb-4">Gerenciar Cardápio</h2>
+              <h2 className="text-slate-700 mb-4">Gerenciar Itens do Cardápio</h2>
               
               {/* Add Item Form */}
               <form onSubmit={handleAddItem} className="bg-slate-50 rounded-lg p-6 mb-6">
