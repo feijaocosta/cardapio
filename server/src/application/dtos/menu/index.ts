@@ -26,7 +26,7 @@ export class UpdateMenuDTO {
   constructor(data: any) {
     this.name = data?.name?.trim() || undefined;
     this.description = data?.description?.trim() || undefined;
-    this.active = data?.active !== undefined ? data.active === 'true' || data.active === true : undefined;
+    this.active = data?.active !== undefined ? Boolean(data.active) : undefined;
   }
 }
 
@@ -36,6 +36,7 @@ export class MenuResponseDTO {
   description: string | null;
   logoFilename: string | null;
   active: boolean;
+  itemIds: number[];
   createdAt?: Date;
   updatedAt?: Date;
 
@@ -44,18 +45,20 @@ export class MenuResponseDTO {
     this.name = data.name!;
     this.description = data.description || null;
     this.logoFilename = data.logoFilename || null;
-    this.active = data.active !== undefined ? data.active : true;
+    this.active = data.active ?? true;
+    this.itemIds = data.itemIds || [];
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
   }
 
-  static from(entity: any): MenuResponseDTO {
+  static from(entity: any, itemIds: number[] = []): MenuResponseDTO {
     return new MenuResponseDTO({
       id: entity.id,
       name: entity.name,
       description: entity.description,
       logoFilename: entity.logoFilename,
       active: entity.active,
+      itemIds: itemIds,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     });

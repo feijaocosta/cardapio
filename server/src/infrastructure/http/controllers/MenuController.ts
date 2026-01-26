@@ -1,11 +1,16 @@
 import { Request, Response } from 'express';
 import { MenuService } from '../../../domain/menus/MenuService';
+import { ItemService } from '../../../domain/menus/ItemService';
 import { CreateMenuDTO, UpdateMenuDTO } from '../../../application/dtos/menu';
+import { AddItemToMenuDTO } from '../../../application/dtos/item';
 import { generateImageFilename, processAndSaveImage, deleteImageFile, UPLOAD_DIR_PATH } from '../../../middleware/upload';
 import path from 'path';
 
 export class MenuController {
-  constructor(private menuService: MenuService) {}
+  constructor(
+    private menuService: MenuService,
+    private itemService: ItemService
+  ) {}
 
   async getAll(req: Request, res: Response): Promise<void> {
     const menus = await this.menuService.getAllMenus();
@@ -63,5 +68,24 @@ export class MenuController {
 
     const filepath = path.join(UPLOAD_DIR_PATH, menu.logoFilename);
     res.sendFile(filepath);
+  }
+
+  async getMenuItems(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const items = await this.itemService.getItemsByMenuId(Number(id));
+    res.json(items);
+  }
+
+  async addItemToMenu(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const dto = new AddItemToMenuDTO({ menuId: Number(id), itemId: req.body.itemId });
+    await this.itemService.addItemToMenu(dto);
+    res.status(201).send();
+  }
+
+  async removeItemFromMenu(req: Request, res: Response): Promise<void> {
+    const { id, itemId } = req.params;
+    await this.itemService.removeItemFromMenu(Number(id), Number(itemId));
+    res.status(204).send();
   }
 }

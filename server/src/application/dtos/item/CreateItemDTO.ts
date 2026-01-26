@@ -1,0 +1,1 @@
+// Arquivo consolidado em index.ts - remover este arquivo

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { ItemService } from '../../../domain/menus/ItemService';
-import { CreateItemDTO, UpdateItemDTO } from '../../../application/dtos/item';
+import { CreateItemDTO, UpdateItemDTO, AddItemToMenuDTO } from '../../../application/dtos/item';
 
 export class ItemController {
   constructor(private itemService: ItemService) {}
@@ -38,6 +38,19 @@ export class ItemController {
   async delete(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     await this.itemService.deleteItem(Number(id));
+    res.status(204).send();
+  }
+
+  async addItemToMenu(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const dto = new AddItemToMenuDTO({ menuId: req.body.menuId, itemId: Number(id) });
+    await this.itemService.addItemToMenu(dto);
+    res.status(201).send();
+  }
+
+  async removeItemFromMenu(req: Request, res: Response): Promise<void> {
+    const { id, menuId } = req.params;
+    await this.itemService.removeItemFromMenu(Number(menuId), Number(id));
     res.status(204).send();
   }
 }

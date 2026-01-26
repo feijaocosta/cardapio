@@ -53,6 +53,14 @@ export class MenuRepository implements IMenuRepository {
     await this.db.run('DELETE FROM menus WHERE id = ?', id);
   }
 
+  async getMenuItems(menuId: number): Promise<number[]> {
+    const rows = await this.db.all<any[]>(
+      `SELECT item_id FROM menu_items WHERE menu_id = ? ORDER BY item_id`,
+      menuId
+    );
+    return rows.map(row => row.item_id);
+  }
+
   private toDomain(row: any): Menu {
     return new Menu(
       row.id,

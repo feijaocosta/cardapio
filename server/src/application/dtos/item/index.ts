@@ -1,13 +1,11 @@
 import { ValidationError } from '../../../core/errors/AppError';
 
 export class CreateItemDTO {
-  menuId: number;
   name: string;
   price: number;
   description?: string;
 
   constructor(data: any) {
-    this.menuId = data?.menuId ? Number(data.menuId) : 0;
     this.name = data?.name?.trim() || '';
     this.price = data?.price ? Number(data.price) : 0;
     this.description = data?.description?.trim() || '';
@@ -16,9 +14,6 @@ export class CreateItemDTO {
   }
 
   private validate(): void {
-    if (!this.menuId) {
-      throw new ValidationError('ID do menu é obrigatório');
-    }
     if (!this.name) {
       throw new ValidationError('Nome do item é obrigatório');
     }
@@ -42,32 +37,53 @@ export class UpdateItemDTO {
 
 export class ItemResponseDTO {
   id: number;
-  menuId: number;
   name: string;
   price: number;
   description: string | null;
+  menuIds: number[];
   createdAt?: Date;
   updatedAt?: Date;
 
   constructor(data: Partial<ItemResponseDTO>) {
     this.id = data.id!;
-    this.menuId = data.menuId!;
     this.name = data.name!;
     this.price = data.price!;
     this.description = data.description || null;
+    this.menuIds = data.menuIds || [];
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
   }
 
-  static from(entity: any): ItemResponseDTO {
+  static from(entity: any, menuIds: number[] = []): ItemResponseDTO {
     return new ItemResponseDTO({
       id: entity.id,
-      menuId: entity.menuId,
       name: entity.name,
       price: entity.price,
       description: entity.description,
+      menuIds: menuIds,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     });
+  }
+}
+
+export class AddItemToMenuDTO {
+  menuId: number;
+  itemId: number;
+
+  constructor(data: any) {
+    this.menuId = data?.menuId ? Number(data.menuId) : 0;
+    this.itemId = data?.itemId ? Number(data.itemId) : 0;
+
+    this.validate();
+  }
+
+  private validate(): void {
+    if (!this.menuId) {
+      throw new ValidationError('ID do menu é obrigatório');
+    }
+    if (!this.itemId) {
+      throw new ValidationError('ID do item é obrigatório');
+    }
   }
 }

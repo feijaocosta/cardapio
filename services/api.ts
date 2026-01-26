@@ -115,25 +115,25 @@ async function fetchAPI<T>(
 // ==================== Itens do Cardápio ====================
 
 export async function getMenuItems(): Promise<MenuItem[]> {
-  return fetchAPI<MenuItem[]>('/items');
+  return fetchAPI<MenuItem[]>('/api/items');
 }
 
 export async function addMenuItem(item: Omit<MenuItem, 'id'>): Promise<MenuItem> {
-  return fetchAPI<MenuItem>('/items', {
+  return fetchAPI<MenuItem>('/api/items', {
     method: 'POST',
     body: JSON.stringify(item),
   });
 }
 
 export async function updateMenuItem(id: number, item: Partial<Omit<MenuItem, 'id'>>): Promise<void> {
-  await fetchAPI(`/items/${id}`, {
+  await fetchAPI(`/api/items/${id}`, {
     method: 'PUT',
     body: JSON.stringify(item),
   });
 }
 
 export async function removeMenuItem(id: number): Promise<void> {
-  await fetchAPI(`/items/${id}`, {
+  await fetchAPI(`/api/items/${id}`, {
     method: 'DELETE',
   });
 }
@@ -141,19 +141,19 @@ export async function removeMenuItem(id: number): Promise<void> {
 // ==================== Pedidos ====================
 
 export async function getOrders(): Promise<Order[]> {
-  return fetchAPI<Order[]>('/orders');
+  return fetchAPI<Order[]>('/api/orders');
 }
 
 export async function addOrder(order: Omit<Order, 'id' | 'date'>): Promise<Order> {
-  return fetchAPI<Order>('/orders', {
+  return fetchAPI<Order>('/api/orders', {
     method: 'POST',
     body: JSON.stringify(order),
   });
 }
 
 export async function updateOrderStatus(orderId: number, status: string): Promise<void> {
-  await fetchAPI(`/orders/${orderId}`, {
-    method: 'PUT',
+  await fetchAPI(`/api/orders/${orderId}/status`, {
+    method: 'PATCH',
     body: JSON.stringify({ status }),
   });
 }
@@ -161,15 +161,15 @@ export async function updateOrderStatus(orderId: number, status: string): Promis
 // ==================== Cardápios ====================
 
 export async function getMenus(): Promise<Menu[]> {
-  return fetchAPI<Menu[]>('/menus');
+  return fetchAPI<Menu[]>('/api/menus');
 }
 
 export async function getActiveMenus(): Promise<Menu[]> {
-  return fetchAPI<Menu[]>('/menus?active=true');
+  return fetchAPI<Menu[]>('/api/menus?active=true');
 }
 
 export async function addMenu(menu: Omit<Menu, 'id'>): Promise<Menu> {
-  return fetchAPI<Menu>('/menus', {
+  return fetchAPI<Menu>('/api/menus', {
     method: 'POST',
     body: JSON.stringify(menu),
   });
@@ -191,7 +191,7 @@ export async function addMenuWithLogo(
     formData.append('logo', logoFile);
   }
 
-  const response = await fetch(`${API_BASE_URL}/menus`, {
+  const response = await fetch(`${API_BASE_URL}/api/menus`, {
     method: 'POST',
     body: formData,
   });
@@ -225,7 +225,7 @@ export async function updateMenu(
     formData.append('logo', logoFile);
   }
 
-  const response = await fetch(`${API_BASE_URL}/menus/${id}`, {
+  const response = await fetch(`${API_BASE_URL}/api/menus/${id}`, {
     method: 'PUT',
     body: formData,
   });
@@ -239,24 +239,24 @@ export async function updateMenu(
 }
 
 export async function removeMenu(id: number): Promise<void> {
-  await fetchAPI(`/menus/${id}`, {
+  await fetchAPI(`/api/menus/${id}`, {
     method: 'DELETE',
   });
 }
 
 export async function getMenuItemsByMenuId(menuId: number): Promise<MenuItem[]> {
-  return fetchAPI<MenuItem[]>(`/menus/${menuId}/items`);
+  return fetchAPI<MenuItem[]>(`/api/items/menu/${menuId}`);
 }
 
 export async function addItemToMenu(menuId: number, itemId: number): Promise<void> {
-  await fetchAPI(`/menus/${menuId}/items`, {
+  await fetchAPI(`/api/items`, {
     method: 'POST',
-    body: JSON.stringify({ itemId }),
+    body: JSON.stringify({ menuId, id: itemId }),
   });
 }
 
 export async function removeItemFromMenu(menuId: number, itemId: number): Promise<void> {
-  await fetchAPI(`/menus/${menuId}/items/${itemId}`, {
+  await fetchAPI(`/api/items/${itemId}`, {
     method: 'DELETE',
   });
 }
@@ -264,11 +264,11 @@ export async function removeItemFromMenu(menuId: number, itemId: number): Promis
 // ==================== Configurações ====================
 
 export async function getSettings(): Promise<Settings> {
-  return fetchAPI<Settings>('/settings');
+  return fetchAPI<Settings>('/api/settings');
 }
 
 export async function updateSettings(settings: Partial<Settings>): Promise<void> {
-  await fetchAPI('/settings', {
+  await fetchAPI('/api/settings', {
     method: 'PUT',
     body: JSON.stringify(settings),
   });

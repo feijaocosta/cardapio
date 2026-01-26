@@ -10,24 +10,21 @@ export class ItemRepository implements IItemRepository {
     if (item.id) {
       // Update
       await this.db.run(
-        `UPDATE items SET menu_id = ?, name = ?, price = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [item.menuId, item.name, item.price, item.description, item.id]
+        `UPDATE items SET name = ?, price = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [item.name, item.price, item.description, item.id]
       );
       return item;
     } else {
       // Insert
       const result = await this.db.run(
-        `INSERT INTO items (menu_id, name, price, description, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        [item.menuId, item.name, item.price, item.description]
+        `INSERT INTO items (name, price, description, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [item.name, item.price, item.description]
       );
       return new MenuItem(
         result.lastID as number,
-        item.menuId,
         item.name,
         item.price,
-        item.description,
-        item.createdAt,
-        item.updatedAt
+        item.description
       );
     }
   }
@@ -38,14 +35,6 @@ export class ItemRepository implements IItemRepository {
       id
     );
     return row ? this.toDomain(row) : null;
-  }
-
-  async findByMenuId(menuId: number): Promise<MenuItem[]> {
-    const rows = await this.db.all<any[]>(
-      'SELECT * FROM items WHERE menu_id = ? ORDER BY id DESC',
-      menuId
-    );
-    return rows.map(row => this.toDomain(row));
   }
 
   async findAll(): Promise<MenuItem[]> {
@@ -61,15 +50,46 @@ export class ItemRepository implements IItemRepository {
     await this.db.run('DELETE FROM items WHERE id = ?', id);
   }
 
+  // Métodos para relacionamento N:N
+  async addItemToMenu(menuId: number, itemId: number): Promise<void> {
+    await this.db.run(
+      `INSERT INTO menu_items (menu_id, item_id, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [menuId, itemId]
+    );
+  }
+
+  async removeItemFromMenu(menuId: number, itemId: number): Promise<void> {
+    await this.db.run(
+      `DELETE FROM menu_items WHERE menu_id = ? AND item_id = ?`,
+      [menuId, itemId]
+    );
+  }
+
+  async getItemsByMenuId(menuId: number): Promise<MenuItem[]> {
+    const rows = await this.db.all<any[]>(
+      `SELECT i.* FROM items i 
+       INNER JOIN menu_items mi ON i.id = mi.item_id 
+       WHERE mi.menu_id = ? 
+       ORDER BY i.id DESC`,
+      menuId
+    );
+    return rows.map(row => this.toDomain(row));
+  }
+
+  async getMenusByItemId(itemId: number): Promise<number[]> {
+    const rows = await this.db.all<any[]>(
+      `SELECT menu_id FROM menu_items WHERE item_id = ? ORDER BY menu_id`,
+      itemId
+    );
+    return rows.map(row => row.menu_id);
+  }
+
   private toDomain(row: any): MenuItem {
     return new MenuItem(
       row.id,
-      row.menu_id,
       row.name,
       row.price,
-      row.description || null,
-      row.created_at ? new Date(row.created_at) : new Date(),
-      row.updated_at ? new Date(row.updated_at) : new Date()
+      row.description || undefined
     );
   }
 }

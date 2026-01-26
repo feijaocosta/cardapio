@@ -2537,28 +2537,6 @@ git commit -m "refactor: aplicar Clean Architecture + DDD Lite no backend
 
 ---
 
-## 🆘 Troubleshooting
-
-### Problema: "Cannot find module"
-**Solução**: Verificar paths relativos em imports. Usar estrutura correta:
-```typescript
-// Correto
-import { Menu } from '../../../domain/menus/Menu';
-
-// Verificar tsconfig.json para paths aliases
-```
-
-### Problema: "Service not injected"
-**Solução**: Verificar se service está registrado no container e injetado nas rotas via `setMenuService()`.
-
-### Problema: "Erro 500 genérico"
-**Solução**: Verificar console para logs de erro. Erro handler deve mostrar stack trace em desenvolvimento.
-
-### Problema: "Database locked"
-**Solução**: Pode haver múltiplas conexões. Verificar se `getDatabase()` retorna singleton.
-
----
-
 ## 🎯 Próximos Passos Após Conclusão
 
 1. **Adicionar Testes Unitários**
@@ -2583,8 +2561,706 @@ import { Menu } from '../../../domain/menus/Menu';
 
 ---
 
-**Documento**: `PLANO_EXECUCAO.md`  
-**Versão**: 1.1 (atualizado com clarificação de caminhos)  
-**Data de Criação**: 23 de janeiro de 2026  
-**Status**: Pronto para Execução  
-**Revisor**: Verificar após cada fase completada
+## 📈 ROADMAP DE MELHORIAS PÓS-REFATORAÇÃO
+
+### 🚀 FASE 6: Validação Robusta com Zod (Prioridade: ALTA)
+
+**Por que?** A validação manual em DTOs é propensa a erros. Zod oferece:
+- ✅ Validação declarativa e type-safe
+- ✅ Mensagens de erro customizadas
+- ✅ Composição de schemas
+- ✅ Integração com TypeScript automática
+
+**Arquivos a criar:**
+```
+core/
+  ├── validators/
+  │   ├── menu.schema.ts
+  │   ├── item.schema.ts
+  │   ├── order.schema.ts
+  │   └── setting.schema.ts
+```
+
+**Exemplo de implementação:**
+
+```typescript
+// core/validators/menu.schema.ts
+import { z } from 'zod';
+
+export const CreateMenuSchema = z.object({
+  name: z.string()
+    .min(1, 'Nome do menu é obrigatório')
+    .max(255, 'Nome não pode ter mais de 255 caracteres')
+    .trim(),
+  description: z.string().optional().nullable(),
+});
+
+export const UpdateMenuSchema = CreateMenuSchema.partial();
+
+export type CreateMenuInput = z.infer<typeof CreateMenuSchema>;
+export type UpdateMenuInput = z.infer<typeof UpdateMenuSchema>;
+```
+
+**Refatorar DTOs para usar Zod:**
+
+```typescript
+// application/dtos/menu/CreateMenuDTO.ts - ANTES
+export class CreateMenuDTO {
+  name: string;
+  constructor(data: any) {
+    this.name = data?.name?.trim() || '';
+    this.validate();
+  }
+  private validate(): void {
+    if (!this.name) {
+      throw new ValidationError('Nome do menu é obrigatório');
+    }
+  }
+}
+
+// application/dtos/menu/CreateMenuDTO.ts - DEPOIS
+import { CreateMenuSchema, CreateMenuInput } from '../../../core/validators/menu.schema';
+
+export class CreateMenuDTO implements CreateMenuInput {
+  name: string;
+  description?: string | null;
+
+  constructor(data: unknown) {
+    const validated = CreateMenuSchema.parse(data);
+    this.name = validated.name;
+    this.description = validated.description;
+  }
+}
+```
+
+**Middleware de validação:**
+
+```typescript
+// infrastructure/http/middleware/validateRequest.ts
+import { Request, Response, NextFunction } from 'express';
+import { ZodSchema } from 'zod';
+import { ValidationError } from '../../../core/errors/AppError';
+
+export const validateRequest = (schema: ZodSchema) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validated = schema.parse({
+        body: req.body,
+        params: req.params,
+        query: req.query,
+      });
+      req.body = validated.body;
+      req.params = validated.params;
+      req.query = validated.query;
+      next();
+    } catch (error: any) {
+      const message = error.errors?.[0]?.message || 'Validação falhou';
+      next(new ValidationError(message));
+    }
+  };
+};
+```
+
+**Uso nas rotas:**
+
+```typescript
+// infrastructure/http/routes/menus.ts
+router.post('/', 
+  validateRequest(CreateMenuSchema),
+  asyncHandler(async (req, res) => {
+    const dto = new CreateMenuDTO(req.body); // Já validado
+    const menu = await menuService.createMenu(dto);
+    res.status(201).json(menu);
+  })
+);
+```
+
+**Estimativa:** 1-2 dias
+**Ganhos:** 70% redução em código de validação, melhor segurança
+
+---
+
+### 🔐 FASE 7: Autenticação & Autorização (Prioridade: ALTA)
+
+**Por que?** Admin view vs Customer view precisam de controle de acesso
+
+**Implementação:**
+
+```typescript
+// domain/auth/Auth.ts
+export class Auth {
+  constructor(
+    readonly userId: number,
+    readonly role: 'admin' | 'customer',
+    readonly token: string
+  ) {}
+
+  isAdmin(): boolean {
+    return this.role === 'admin';
+  }
+
+  hasPermission(resource: string, action: string): boolean {
+    const permissions: Record<string, string[]> = {
+      admin: ['read', 'create', 'update', 'delete'],
+      customer: ['read'],
+    };
+    return permissions[this.role]?.includes(action) ?? false;
+  }
+}
+
+// infrastructure/http/middleware/auth.ts
+import jwt from 'jsonwebtoken';
+import { UnauthorizedError } from '../../../core/errors/AppError';
+
+export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      throw new UnauthorizedError('Token não fornecido');
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    req.user = decoded; // Attach user to request
+    next();
+  } catch (error) {
+    next(new UnauthorizedError('Token inválido'));
+  }
+};
+
+export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (req.user?.role !== 'admin') {
+    throw new ForbiddenError('Acesso restrito a administradores');
+  }
+  next();
+};
+```
+
+**Usar nas rotas:**
+
+```typescript
+// POST /api/auth/login
+router.post('/login', asyncHandler(async (req, res) => {
+  const auth = await authService.login(req.body.password);
+  res.json({ token: auth.token });
+}));
+
+// Proteger rotas admin
+router.delete('/:id', authMiddleware, requireAdmin, asyncHandler(async (req, res) => {
+  await menuService.deleteMenu(Number(req.params.id));
+  res.status(204).send();
+}));
+```
+
+**Estimativa:** 2-3 dias
+**Ganhos:** Separação clara entre admin e customer, segurança aumentada
+
+---
+
+### 📊 FASE 8: Logging & Monitoring (Prioridade: MÉDIA)
+
+**Por que?** Debug em produção é crítico
+
+**Tecnologia recomendada:** Winston + Morgan
+
+```bash
+npm install winston morgan
+```
+
+```typescript
+// core/logger/Logger.ts
+import winston from 'winston';
+
+export const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/combined.log' }),
+  ],
+});
+
+// Usar em services
+logger.info('✅ Menu criado', { menuId: menu.id, name: menu.name });
+logger.error('❌ Erro ao criar menu', { error: error.message });
+```
+
+**Middleware HTTP:**
+
+```typescript
+import morgan from 'morgan';
+
+app.use(morgan('combined', {
+  stream: fs.createWriteStream('logs/http.log', { flags: 'a' })
+}));
+app.use(morgan('dev')); // Console em desenvolvimento
+```
+
+**Estimativa:** 1-2 dias
+**Ganhos:** Rastreabilidade total, debugging facilitado
+
+---
+
+### 🧪 FASE 9: E2E Tests com Cypress (Prioridade: MÉDIA)
+
+**Por que?** Testes manuais são lentos e propensos a erros
+
+```bash
+npm install cypress --save-dev
+```
+
+```typescript
+// cypress/e2e/menus.cy.ts
+describe('Menu Management', () => {
+  beforeEach(() => {
+    cy.visit('http://localhost:5173');
+    cy.login('admin', 'password');
+  });
+
+  it('deve criar novo menu', () => {
+    cy.get('[data-testid="btn-new-menu"]').click();
+    cy.get('input[name="name"]').type('Menu Especial');
+    cy.get('textarea[name="description"]').type('Descrição do menu');
+    cy.get('[data-testid="btn-save"]').click();
+    cy.get('[data-testid="toast"]').should('contain', 'Menu criado com sucesso');
+  });
+
+  it('deve listar menus', () => {
+    cy.get('[data-testid="menu-list"]')
+      .should('be.visible')
+      .find('[data-testid="menu-item"]')
+      .should('have.length.greaterThan', 0);
+  });
+
+  it('deve deletar menu', () => {
+    cy.get('[data-testid="menu-item"]').first().find('[data-testid="btn-delete"]').click();
+    cy.get('[data-testid="confirm-dialog"]').should('be.visible');
+    cy.get('[data-testid="btn-confirm"]').click();
+    cy.get('[data-testid="toast"]').should('contain', 'Menu deletado');
+  });
+});
+```
+
+**Estimativa:** 3-5 dias
+**Ganhos:** Confiança no frontend, regressão detectada automaticamente
+
+---
+
+### 🔄 FASE 10: Paginação & Filtros (Prioridade: MÉDIA)
+
+**Por que?** Performance com muitos registros
+
+```typescript
+// core/types/index.ts - ATUALIZADO
+export interface IPaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+// domain/menus/MenuRepository.ts - INTERFACE ATUALIZADA
+export interface IMenuRepository {
+  findPaginated(page: number, pageSize: number, filters?: MenuFilters): Promise<IPaginatedResponse<Menu>>;
+}
+
+// infrastructure/database/repositories/MenuRepository.ts
+async findPaginated(
+  page: number = 1,
+  pageSize: number = 10,
+  filters?: { search?: string; active?: boolean }
+): Promise<IPaginatedResponse<Menu>> {
+  let query = 'SELECT * FROM menus WHERE 1=1';
+  const params: any[] = [];
+
+  if (filters?.search) {
+    query += ' AND name LIKE ?';
+    params.push(`%${filters.search}%`);
+  }
+
+  if (filters?.active !== undefined) {
+    query += ' AND active = ?';
+    params.push(filters.active ? 1 : 0);
+  }
+
+  const total = await this.db.get(`SELECT COUNT(*) as count FROM (${query})`, params);
+  
+  const offset = (page - 1) * pageSize;
+  query += ` LIMIT ? OFFSET ?`;
+  params.push(pageSize, offset);
+
+  const rows = await this.db.all(query, params);
+  
+  return {
+    data: rows.map(row => this.toDomain(row)),
+    total: total.count,
+    page,
+    pageSize,
+    hasNextPage: page * pageSize < total.count,
+    hasPreviousPage: page > 1,
+  };
+}
+```
+
+**Usar nas rotas:**
+
+```typescript
+router.get('/', asyncHandler(async (req, res) => {
+  const page = Number(req.query.page) || 1;
+  const pageSize = Number(req.query.pageSize) || 10;
+  const search = req.query.search as string;
+  const active = req.query.active === 'true';
+
+  const result = await menuService.getMenusPaginated(page, pageSize, { search, active });
+  res.json(result);
+}));
+```
+
+**Estimativa:** 2-3 dias
+**Ganhos:** Performance escalável, UX melhorada
+
+---
+
+### 📱 FASE 11: API REST Melhorada (Prioridade: BAIXA)
+
+**Implementações recomendadas:**
+
+1. **Soft Delete**
+   ```typescript
+   // Adicionar coluna deletedAt nas tabelas
+   ALTER TABLE menus ADD COLUMN deleted_at DATETIME NULL;
+   
+   // Repository não retorna deletados por padrão
+   async findAll() {
+     const rows = await this.db.all('SELECT * FROM menus WHERE deleted_at IS NULL');
+   }
+   
+   // Método de soft delete
+   async softDelete(id: number) {
+     await this.db.run('UPDATE menus SET deleted_at = NOW() WHERE id = ?', id);
+   }
+   ```
+
+2. **Bulk Operations**
+   ```typescript
+   router.post('/bulk-delete', asyncHandler(async (req, res) => {
+     const ids = req.body.ids as number[];
+     await menuService.deleteMany(ids);
+     res.json({ deleted: ids.length });
+   }));
+   ```
+
+3. **ETags & Cache**
+   ```typescript
+   router.get('/:id', asyncHandler(async (req, res) => {
+     const menu = await menuService.getMenuById(Number(req.params.id));
+     const etag = crypto.createHash('md5').update(JSON.stringify(menu)).digest('hex');
+     
+     res.set('ETag', etag);
+     if (req.headers['if-none-match'] === etag) {
+       return res.status(304).send();
+     }
+     res.json(menu);
+   }));
+   ```
+
+4. **HATEOAS (Optional)**
+   ```typescript
+   interface MenuResponseDTO {
+     id: number;
+     name: string;
+     _links: {
+       self: { href: string };
+       items: { href: string };
+       delete: { href: string };
+     };
+   }
+   ```
+
+**Estimativa:** 2-3 dias cada
+**Ganhos:** API mais robusta, melhor performance
+
+---
+
+### 🎨 FASE 12: Documentação OpenAPI/Swagger (Prioridade: ALTA)
+
+**Por que?** Documentação live é essencial para APIs
+
+```bash
+npm install swagger-ui-express swagger-jsdoc
+npm install --save-dev @types/swagger-ui-express @types/swagger-jsdoc
+```
+
+```typescript
+// core/swagger/swaggerConfig.ts
+import swaggerJsdoc from 'swagger-jsdoc';
+
+const options = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Cardápio API',
+      version: '1.0.0',
+      description: 'API REST para gerenciamento de cardápios',
+    },
+    servers: [
+      { url: 'http://localhost:3000', description: 'Development' },
+      { url: 'https://api.cardapio.com', description: 'Production' },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+  },
+  apis: ['./src/infrastructure/http/routes/*.ts'],
+};
+
+export const swaggerSpec = swaggerJsdoc(options);
+
+// src/index.ts
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './core/swagger/swaggerConfig';
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+```
+
+**Documentar rotas:**
+
+```typescript
+/**
+ * @swagger
+ * /api/menus:
+ *   get:
+ *     summary: Lista todos os menus
+ *     tags: [Menus]
+ *     responses:
+ *       200:
+ *         description: Lista de menus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Menu'
+ */
+router.get('/', asyncHandler(async (req, res) => {
+  const menus = await menuService.getAllMenus();
+  res.json(menus);
+}));
+```
+
+**Estimativa:** 2-3 dias
+**Ganhos:** Documentação auto-gerada, melhor DX para usuários da API
+
+---
+
+### 🚀 FASE 13: Deploy & CI/CD (Prioridade: ALTA)
+
+**Recomendações:**
+
+1. **GitHub Actions para Deploy**
+   ```yaml
+   # .github/workflows/deploy.yml
+   name: Deploy
+   on:
+     push:
+       branches: [main]
+   
+   jobs:
+     deploy:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v3
+         - name: Build and push Docker image
+           run: docker build -t cardapio-api:${{ github.sha }} .
+         - name: Deploy to production
+           run: docker run -d -p 3000:3000 cardapio-api:${{ github.sha }}
+   ```
+
+2. **Dockerfile**
+   ```dockerfile
+   FROM node:20-alpine
+   
+   WORKDIR /app
+   COPY server/package*.json ./
+   RUN npm ci --only=production
+   
+   COPY server/src ./src
+   COPY server/tsconfig.json ./
+   
+   RUN npm run build
+   
+   EXPOSE 3000
+   CMD ["node", "dist/index.js"]
+   ```
+
+3. **Docker Compose para desenvolvimento**
+   ```yaml
+   # docker-compose.yml
+   version: '3.8'
+   services:
+     api:
+       build: ./server
+       ports:
+         - "3000:3000"
+       environment:
+         - DATABASE_URL=./database.sqlite
+         - NODE_ENV=development
+   ```
+
+**Estimativa:** 3-5 dias
+**Ganhos:** Deploy automático, rollback fácil, CI/CD maduro
+
+---
+
+### 🔧 FASE 14: Performance & Otimizações (Prioridade: MÉDIA)
+
+**Implementações:**
+
+1. **Query Caching com Redis**
+   ```typescript
+   // core/cache/CacheService.ts
+   import Redis from 'redis';
+   
+   export class CacheService {
+     private client = Redis.createClient();
+   
+     async get<T>(key: string): Promise<T | null> {
+       const data = await this.client.get(key);
+       return data ? JSON.parse(data) : null;
+     }
+   
+     async set<T>(key: string, value: T, ttl: number = 3600) {
+       await this.client.setex(key, ttl, JSON.stringify(value));
+     }
+   }
+   ```
+
+2. **Database Indexing**
+   ```sql
+   -- migrations/004_add_indexes.sql
+   CREATE INDEX idx_menus_active ON menus(active);
+   CREATE INDEX idx_items_menu_id ON items(menu_id);
+   CREATE INDEX idx_orders_customer_name ON orders(customer_name);
+   CREATE INDEX idx_orders_status ON orders(status);
+   ```
+
+3. **Query Optimization**
+   ```typescript
+   // Avoid N+1 queries
+   async getMenusWithItems(menuIds: number[]) {
+     const items = await this.db.all(
+       'SELECT * FROM items WHERE menu_id IN (?, ?, ...)',
+       menuIds
+     );
+     
+     // Group by menuId
+     const itemsByMenuId = new Map();
+     items.forEach(item => {
+       if (!itemsByMenuId.has(item.menu_id)) {
+         itemsByMenuId.set(item.menu_id, []);
+       }
+       itemsByMenuId.get(item.menu_id).push(item);
+     });
+     
+     return menus.map(menu => ({
+       ...menu,
+       items: itemsByMenuId.get(menu.id) || [],
+     }));
+   }
+   ```
+
+**Estimativa:** 3-5 dias
+**Ganhos:** Redução de latência 50%+, melhor UX
+
+---
+
+### 📚 FASE 15: NestJS Migration (Prioridade: BAIXA - Futuro)
+
+**Por que?** Se projeto crescer muito
+
+**Vantagens:**
+- ✅ DI out-of-the-box
+- ✅ Decorators para validação/autenticação
+- ✅ Guards, Pipes, Interceptors
+- ✅ GraphQL support
+- ✅ Melhor escalabilidade
+
+**Esforço:** 5-10 dias (migração completa)
+
+---
+
+## 📊 Tabela de Priorização
+
+| Fase | Melhoria | Prioridade | Esforço | ROI | Pré-requisito |
+|------|----------|-----------|--------|-----|--------------|
+| 6 | Zod Validation | ALTA | 1-2d | Alto | Refatoração |
+| 7 | Auth & Authz | ALTA | 2-3d | Alto | Refatoração |
+| 8 | Logging | MÉDIA | 1-2d | Médio | Refatoração |
+| 9 | E2E Tests | MÉDIA | 3-5d | Médio | Testes Unit |
+| 10 | Paginação | MÉDIA | 2-3d | Alto | Refatoração |
+| 11 | REST Melhorada | BAIXA | 2-3d | Médio | Refatoração |
+| 12 | Swagger | ALTA | 2-3d | Médio | Refatoração |
+| 13 | CI/CD Deploy | ALTA | 3-5d | Alto | Testes |
+| 14 | Performance | MÉDIA | 3-5d | Alto | Refatoração |
+| 15 | NestJS | BAIXA | 5-10d | Médio | Futuro |
+
+---
+
+## 🗓️ Sugestão de Timeline
+
+```
+MESES 1-2 (Já em progresso)
+├── Refatoração Clean Architecture (Semana 1-2)
+├── Testes Unitários + Integração (Semana 2-3)
+└── Correções de bugs descobertos (Semana 3-4)
+
+MESES 2-3 (Depois da refatoração)
+├── FASE 6: Zod Validation (Semana 1)
+├── FASE 7: Auth & Authz (Semana 2-3)
+├── FASE 12: Swagger (Semana 3)
+└── FASE 13: CI/CD Deploy (Semana 4)
+
+MESES 3-4 (Estabilização)
+├── FASE 8: Logging (Semana 1)
+├── FASE 10: Paginação (Semana 2)
+├── FASE 14: Performance (Semana 3-4)
+└── Melhorias conforme feedback (Contínuo)
+
+MESES 5+ (Crescimento)
+├── FASE 9: E2E Tests Cypress (Contínuo)
+├── FASE 11: REST Melhorada (Conforme necessário)
+├── Bug fixes e manutenção (Contínuo)
+└── Avaliar FASE 15: NestJS Migration (Conforme crescimento)
+```
+
+---
+
+## ✅ Checklist de Decisão
+
+Antes de começar cada fase, responda:
+
+- [ ] Refatoração principal foi **completada e validada**?
+- [ ] **Testes automatizados** estão passando (>80% coverage)?
+- [ ] **Documentação** está atualizada?
+- [ ] **Feedback do cliente** foi incorporado?
+- [ ] **Equipe está pronta** para próxima fase?
+- [ ] **Infraestrutura** suporta a mudança?
+- [ ] **Rollback plan** está definido?
+
+---
+
+**Roadmap criado em**: 23 de janeiro de 2026  
+**Próxima revisão**: Após conclusão de FASE 4 (Integração)  
+**Responsável**: Tech Lead / Arquiteto

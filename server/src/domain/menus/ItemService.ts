@@ -1,7 +1,7 @@
 import { MenuItem } from './MenuItem';
 import { IItemRepository } from './ItemRepository';
 import { NotFoundError } from '../../core/errors/AppError';
-import { CreateItemDTO, UpdateItemDTO, ItemResponseDTO } from '../../application/dtos/item';
+import { CreateItemDTO, UpdateItemDTO, ItemResponseDTO, AddItemToMenuDTO } from '../../application/dtos/item';
 
 export class ItemService {
   constructor(private itemRepository: IItemRepository) {}
@@ -11,11 +11,12 @@ export class ItemService {
     if (!item) {
       throw new NotFoundError('Item', id);
     }
-    return ItemResponseDTO.from(item);
+    const menuIds = await this.itemRepository.getMenusByItemId(id);
+    return ItemResponseDTO.from(item, menuIds);
   }
 
   async getItemsByMenuId(menuId: number): Promise<ItemResponseDTO[]> {
-    const items = await this.itemRepository.findByMenuId(menuId);
+    const items = await this.itemRepository.getItemsByMenuId(menuId);
     return items.map(item => ItemResponseDTO.from(item));
   }
 
@@ -25,7 +26,7 @@ export class ItemService {
   }
 
   async createItem(dto: CreateItemDTO): Promise<ItemResponseDTO> {
-    const item = MenuItem.create(dto.menuId, dto.name, dto.price, dto.description);
+    const item = MenuItem.create(0, dto.name, dto.price, dto.description);
     const saved = await this.itemRepository.save(item);
     return ItemResponseDTO.from(saved);
   }
@@ -38,19 +39,29 @@ export class ItemService {
 
     const updated = new MenuItem(
       item.id,
-      item.menuId,
       dto.name !== undefined ? dto.name : item.name,
       dto.price !== undefined ? dto.price : item.price,
-      dto.description !== undefined ? dto.description : item.description,
-      item.createdAt,
-      new Date()
+      dto.description !== undefined ? dto.description : item.description
     );
 
     const saved = await this.itemRepository.save(updated);
-    return ItemResponseDTO.from(saved);
+    const menuIds = await this.itemRepository.getMenusByItemId(id);
+    return ItemResponseDTO.from(saved, menuIds);
   }
 
   async deleteItem(id: number): Promise<void> {
     await this.itemRepository.delete(id);
+  }
+
+  async addItemToMenu(dto: AddItemToMenuDTO): Promise<void> {
+    const item = await this.itemRepository.findById(dto.itemId);
+    if (!item) {
+      throw new NotFoundError('Item', dto.itemId);
+    }
+    await this.itemRepository.addItemToMenu(dto.menuId, dto.itemId);
+  }
+
+  async removeItemFromMenu(menuId: number, itemId: number): Promise<void> {
+    await this.itemRepository.removeItemFromMenu(menuId, itemId);
   }
 }

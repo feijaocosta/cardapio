@@ -8,7 +8,16 @@ export class MenuService {
 
   async getAllMenus(): Promise<MenuResponseDTO[]> {
     const menus = await this.menuRepository.findAll();
-    return menus.map(menu => MenuResponseDTO.from(menu));
+    const menusWithItems = await Promise.all(
+      menus.map(async (menu) => {
+        if (!menu.id) {
+          throw new NotFoundError('Menu', 'unknown');
+        }
+        const itemIds = await this.menuRepository.getMenuItems(menu.id);
+        return MenuResponseDTO.from(menu, itemIds);
+      })
+    );
+    return menusWithItems;
   }
 
   async getMenuById(id: number): Promise<MenuResponseDTO> {
@@ -16,7 +25,11 @@ export class MenuService {
     if (!menu) {
       throw new NotFoundError('Menu', id);
     }
-    return MenuResponseDTO.from(menu);
+    if (!menu.id) {
+      throw new NotFoundError('Menu', id);
+    }
+    const itemIds = await this.menuRepository.getMenuItems(menu.id);
+    return MenuResponseDTO.from(menu, itemIds);
   }
 
   async createMenu(dto: CreateMenuDTO): Promise<MenuResponseDTO> {
@@ -42,7 +55,11 @@ export class MenuService {
     );
 
     const saved = await this.menuRepository.save(updated);
-    return MenuResponseDTO.from(saved);
+    if (!saved.id) {
+      throw new NotFoundError('Menu', id);
+    }
+    const itemIds = await this.menuRepository.getMenuItems(saved.id);
+    return MenuResponseDTO.from(saved, itemIds);
   }
 
   async deleteMenu(id: number): Promise<void> {
@@ -57,6 +74,10 @@ export class MenuService {
 
     const updated = menu.updateLogo(logoFilename);
     const saved = await this.menuRepository.save(updated);
-    return MenuResponseDTO.from(saved);
+    if (!saved.id) {
+      throw new NotFoundError('Menu', id);
+    }
+    const itemIds = await this.menuRepository.getMenuItems(saved.id);
+    return MenuResponseDTO.from(saved, itemIds);
   }
 }

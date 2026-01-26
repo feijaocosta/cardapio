@@ -12,6 +12,7 @@ import { MenuController } from '../infrastructure/http/controllers/MenuControlle
 import { ItemController } from '../infrastructure/http/controllers/ItemController';
 import { OrderController } from '../infrastructure/http/controllers/OrderController';
 import { SettingController } from '../infrastructure/http/controllers/SettingController';
+import { uploadMiddleware } from '../infrastructure/http/middlewares/uploadMiddleware';
 
 export function setupContainer(db: Database): Container {
   const container = new Container();
@@ -24,31 +25,37 @@ export function setupContainer(db: Database): Container {
 
   // Services
   container.registerSingleton('MenuService', () => 
-    new MenuService(container.get('MenuRepository'))
+    new MenuService(container.get('MenuRepository') as MenuRepository)
   );
   container.registerSingleton('ItemService', () => 
-    new ItemService(container.get('ItemRepository'))
+    new ItemService(container.get('ItemRepository') as ItemRepository)
   );
   container.registerSingleton('OrderService', () => 
-    new OrderService(container.get('OrderRepository'))
+    new OrderService(container.get('OrderRepository') as OrderRepository)
   );
   container.registerSingleton('SettingService', () => 
-    new SettingService(container.get('SettingRepository'))
+    new SettingService(container.get('SettingRepository') as SettingRepository)
   );
 
   // Controllers
-  container.register('MenuController', () => 
-    new MenuController(container.get('MenuService'))
+  container.registerSingleton('MenuController', () => 
+    new MenuController(
+      container.get('MenuService') as MenuService,
+      container.get('ItemService') as ItemService
+    )
   );
-  container.register('ItemController', () => 
-    new ItemController(container.get('ItemService'))
+  container.registerSingleton('ItemController', () => 
+    new ItemController(container.get('ItemService') as ItemService)
   );
-  container.register('OrderController', () => 
-    new OrderController(container.get('OrderService'))
+  container.registerSingleton('OrderController', () => 
+    new OrderController(container.get('OrderService') as OrderService)
   );
-  container.register('SettingController', () => 
-    new SettingController(container.get('SettingService'))
+  container.registerSingleton('SettingController', () => 
+    new SettingController(container.get('SettingService') as SettingService)
   );
+
+  // Middlewares
+  container.registerSingleton('uploadMiddleware', () => uploadMiddleware);
 
   return container;
 }
