@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getShowPrice, setShowPrice, getLayoutModel, setLayoutModel, getTheme, setTheme, AVAILABLE_LAYOUTS } from '../services/api';
+import { getShowPrice, setShowPrice, getLayoutModel, setLayoutModel, getTheme, setTheme, AVAILABLE_LAYOUTS } from '../../services/api';
 import { Settings, Eye, EyeOff, LayoutGrid, List, Zap, Palette } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -170,7 +170,7 @@ export function SettingsView({ onSettingsChange }: SettingsViewProps) {
             </div>
           </div>
 
-          {/* PRÉ-REQUISITO 1: Exibir Preço no Cardápio */}
+          {/* Exibir Preço no Cardápio */}
           <div className="mb-8 pb-8 border-b border-gray-200">
             <h2 className="text-lg font-medium text-slate-700 mb-4">
               Exibição de Preços
@@ -221,7 +221,7 @@ export function SettingsView({ onSettingsChange }: SettingsViewProps) {
             </div>
           </div>
 
-          {/* PRÉ-REQUISITO 1: Modelo de Layout */}
+          {/* Modelo de Layout */}
           <div className="mb-8 pb-8 border-b border-gray-200">
             <h2 className="text-lg font-medium text-slate-700 mb-4">
               Modelo de Layout (Grid/Lista/Carrossel)
@@ -290,7 +290,7 @@ export function SettingsView({ onSettingsChange }: SettingsViewProps) {
             </div>
           </div>
 
-          {/* Status de Pedidos (PRÉ-REQUISITO 3) */}
+          {/* Status de Pedidos */}
           <div>
             <h2 className="text-lg font-medium text-slate-700 mb-4">
               Status de Pedidos

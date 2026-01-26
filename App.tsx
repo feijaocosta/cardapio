@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CustomerView } from './components/customer-view';
+import { CustomerViewContainer } from './components/CustomerViewContainer';
 import { AdminView } from './components/admin-view';
 import { SettingsView } from './components/settings-view';
 import { Store, Settings } from 'lucide-react';
@@ -67,7 +67,7 @@ export default function App() {
 
       {/* Content */}
       {view === 'customer' ? (
-        <CustomerView onOrderPlaced={handleOrderPlaced} />
+        <CustomerViewContainer onOrderPlaced={handleOrderPlaced} layoutKey="default" />
       ) : view === 'admin' ? (
         <AdminView refreshTrigger={refreshTrigger} />
       ) : (

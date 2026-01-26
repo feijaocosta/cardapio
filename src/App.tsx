@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CustomerView } from './components/customer-view';
 import { AdminView } from './components/admin-view';
-import { SettingsView } from '../components/settings-view';
+import { SettingsView } from './components/settings-view';
 import { Store, Settings } from 'lucide-react';
 import { initDatabase } from '../services/api';
 

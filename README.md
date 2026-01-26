@@ -69,6 +69,18 @@ Documentação consolidada e organizada para o Sistema de Pedidos com Backend (E
 
 ---
 
+## 🎨 Customização & Layouts
+
+### 8️⃣ **[GUIA_NOVOS_LAYOUTS.md](GUIA_NOVOS_LAYOUTS.md)**
+- Como adicionar novos layouts para a interface do cliente
+- Template passo a passo
+- Exemplos prontos (Minimal, Premium)
+- Checklist de validação
+- **⚠️ IMPORTANTE**: Localização correta: `src/components/customer-views/`
+- ⏱️ Tempo: **15 minutos**
+
+---
+
 ## 🚀 Começo Rápido
 
 ### ⚡ Se você tem 5 minutos:

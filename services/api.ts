@@ -36,56 +36,24 @@ export interface Settings {
   theme: string;
 }
 
-export interface Theme {
-  id: string;
+// ✅ NOVO: Layout/Tema é agora um layout completo, não apenas cores
+export interface LayoutTheme {
+  id: 'default' | 'modern'; // ID do layout que vai ser usado
   name: string;
-  primary: string;
-  primaryHover: string;
-  gradient: string;
-  textPrimary: string;
+  description: string;
 }
 
-export const AVAILABLE_THEMES: Theme[] = [
+export const AVAILABLE_LAYOUTS: LayoutTheme[] = [
   {
-    id: 'orange',
-    name: 'Laranja',
-    primary: 'bg-orange-500',
-    primaryHover: 'hover:bg-orange-600',
-    gradient: 'from-orange-50 to-red-50',
-    textPrimary: 'text-orange-600'
+    id: 'default',
+    name: 'Padrão',
+    description: 'Design clássico com tema laranja',
   },
   {
-    id: 'blue',
-    name: 'Azul',
-    primary: 'bg-blue-500',
-    primaryHover: 'hover:bg-blue-600',
-    gradient: 'from-blue-50 to-indigo-50',
-    textPrimary: 'text-blue-600'
+    id: 'modern',
+    name: 'Moderno',
+    description: 'Dark theme com sidebar do carrinho',
   },
-  {
-    id: 'green',
-    name: 'Verde',
-    primary: 'bg-green-500',
-    primaryHover: 'hover:bg-green-600',
-    gradient: 'from-green-50 to-emerald-50',
-    textPrimary: 'text-green-600'
-  },
-  {
-    id: 'purple',
-    name: 'Roxo',
-    primary: 'bg-purple-500',
-    primaryHover: 'hover:bg-purple-600',
-    gradient: 'from-purple-50 to-pink-50',
-    textPrimary: 'text-purple-600'
-  },
-  {
-    id: 'red',
-    name: 'Vermelho',
-    primary: 'bg-red-500',
-    primaryHover: 'hover:bg-red-600',
-    gradient: 'from-red-50 to-rose-50',
-    textPrimary: 'text-red-600'
-  }
 ];
 
 // Configuração da URL base da API
@@ -312,6 +280,31 @@ export async function getLayoutModel(): Promise<'grid' | 'list' | 'carousel'> {
 
 export async function setLayoutModel(layout: 'grid' | 'list' | 'carousel'): Promise<void> {
   await updateSetting('layout_model', layout);
+}
+
+// ==================== Tema/Layout ====================
+
+// ✅ NOVO: Obter o tema/layout que o admin escolheu
+export async function getTheme(): Promise<'default' | 'modern'> {
+  try {
+    const setting = await getSetting('theme');
+    const value = setting.value as string;
+    // Validar se o tema existe na lista de layouts disponíveis
+    const isValid = AVAILABLE_LAYOUTS.find(t => t.id === value);
+    return isValid ? (value as 'default' | 'modern') : 'default';
+  } catch {
+    return 'default'; // Padrão: layout default
+  }
+}
+
+// ✅ NOVO: Salvar o tema/layout escolhido
+export async function setTheme(themeId: 'default' | 'modern'): Promise<void> {
+  // Validar se o tema existe
+  const themeExists = AVAILABLE_LAYOUTS.find(t => t.id === themeId);
+  if (!themeExists) {
+    throw new Error(`Tema inválido: ${themeId}`);
+  }
+  await updateSetting('theme', themeId);
 }
 
 // ==================== Inicialização ====================
