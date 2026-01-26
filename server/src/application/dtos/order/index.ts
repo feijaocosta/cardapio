@@ -10,7 +10,8 @@ export class CreateOrderDTO {
   }>;
 
   constructor(data: any) {
-    this.customerName = data?.customerName?.trim() || '';
+    const rawName = data?.customerName;
+    this.customerName = typeof rawName === 'string' ? rawName.trim() : '';
     this.items = (data?.items || []).map((item: any) => ({
       itemId: Number(item.itemId),
       quantity: Number(item.quantity),

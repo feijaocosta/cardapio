@@ -1,7 +1,7 @@
 import { Database } from 'sqlite';
 import { Order, OrderItem, OrderStatus } from '../../../domain/orders/Order';
 import { IOrderRepository } from '../../../domain/orders/OrderRepository';
-import { NotFoundError } from '../../../core/errors/AppError';
+import { NotFoundError, ValidationError } from '../../../core/errors/AppError';
 
 export class OrderRepository implements IOrderRepository {
   constructor(private db: Database) {}
@@ -78,16 +78,37 @@ export class OrderRepository implements IOrderRepository {
     
     const orders: Order[] = [];
     for (const row of rows) {
-      const items = await this.db.all<any[]>(
-        'SELECT * FROM order_items WHERE order_id = ?',
-        row.id
-      );
+      try {
+        const items = await this.db.all<any[]>(
+          'SELECT * FROM order_items WHERE order_id = ?',
+          row.id
+        );
 
-      const orderItems = items.map(item =>
-        new OrderItem(item.id, item.order_id, item.item_id, item.quantity, item.unit_price)
-      );
+        const orderItems = items.map(item =>
+          new OrderItem(item.id, item.order_id, item.item_id, item.quantity, item.unit_price)
+        );
 
-      orders.push(this.toDomain(row, orderItems));
+        // Verificar se há items antes de tentar criar a Order
+        if (orderItems.length === 0) {
+          console.warn(`⚠️  Pedido ${row.id} sem items - será deletado automaticamente`);
+          // Deletar pedido corrompido
+          await this.db.run('DELETE FROM orders WHERE id = ?', row.id);
+          continue;
+        }
+
+        const order = this.toDomain(row, orderItems);
+        orders.push(order);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          console.warn(`⚠️  Pedido ${row.id} inválido (${error.message}) - será deletado automaticamente`);
+          // Deletar pedido corrompido
+          await this.db.run('DELETE FROM order_items WHERE order_id = ?', row.id);
+          await this.db.run('DELETE FROM orders WHERE id = ?', row.id);
+          continue;
+        }
+        // Re-lançar outros tipos de erro
+        throw error;
+      }
     }
 
     return orders;

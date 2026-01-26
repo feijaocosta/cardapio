@@ -1,16 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getMenuItems, addMenuItem, removeMenuItem, getOrders, getMenus, addMenuWithLogo, removeMenu, type MenuItem, type Order, type Menu } from '../services/api';
-import { Settings, Plus, Trash2, ShoppingBag, Clock, User, Package, X } from 'lucide-react';
+import { Settings, Plus, Trash2, ShoppingBag, Clock, User, Package, X, AlertCircle, Loader, RotateCcw } from 'lucide-react';
 
 interface AdminViewProps {
   refreshTrigger?: number;
 }
 
-export function AdminView({ refreshTrigger }: AdminViewProps) {
+export function AdminView({ refreshTrigger = 0 }: AdminViewProps) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [activeTab, setActiveTab] = useState<'menus' | 'menu' | 'orders'>('orders');
+  
+  // Loading e Error states por seção
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingMenus, setLoadingMenus] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(false);
+  
+  const [errorOrders, setErrorOrders] = useState<string | null>(null);
+  const [errorMenus, setErrorMenus] = useState<string | null>(null);
+  const [errorItems, setErrorItems] = useState<string | null>(null);
   
   // New item form
   const [newItemName, setNewItemName] = useState('');
@@ -27,19 +36,76 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
 
   const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
 
-  const loadData = async () => {
+  // Funções de carregamento individual com useCallback
+  const loadOrders = useCallback(async () => {
+    console.log('🔄 [ORDERS] Iniciando carregamento...');
+    setLoadingOrders(true);
+    setErrorOrders(null);
     try {
-      setMenuItems(await getMenuItems());
-      setOrders(await getOrders());
-      setMenus(await getMenus());
+      const data = await getOrders();
+      console.log('✅ [ORDERS] Carregado com sucesso:', data.length, 'pedidos');
+      setOrders(data);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('❌ [ORDERS] Erro ao carregar:', error);
+      setErrorOrders('Erro ao carregar pedidos. Tente novamente.');
+    } finally {
+      setLoadingOrders(false);
     }
-  };
+  }, []);
 
+  const loadMenus = useCallback(async () => {
+    console.log('🔄 [MENUS] Iniciando carregamento...');
+    setLoadingMenus(true);
+    setErrorMenus(null);
+    try {
+      const data = await getMenus();
+      console.log('✅ [MENUS] Carregado com sucesso:', data.length, 'cardápios');
+      setMenus(data);
+    } catch (error) {
+      console.error('❌ [MENUS] Erro ao carregar:', error);
+      setErrorMenus('Erro ao carregar cardápios. Tente novamente.');
+    } finally {
+      setLoadingMenus(false);
+    }
+  }, []);
+
+  const loadMenuItems = useCallback(async () => {
+    console.log('🔄 [ITEMS] Iniciando carregamento...');
+    setLoadingItems(true);
+    setErrorItems(null);
+    try {
+      const data = await getMenuItems();
+      console.log('✅ [ITEMS] Carregado com sucesso:', data.length, 'itens');
+      setMenuItems(data);
+    } catch (error) {
+      console.error('❌ [ITEMS] Erro ao carregar:', error);
+      setErrorItems('Erro ao carregar itens do cardápio. Tente novamente.');
+    } finally {
+      setLoadingItems(false);
+    }
+  }, []);
+
+  // Carregar dados quando a aba mudar - SEM dependency array das funções para evitar loops
   useEffect(() => {
-    loadData();
-  }, [refreshTrigger]);
+    console.log('📍 [TAB CHANGE] Mudou para:', activeTab);
+    if (activeTab === 'orders') {
+      loadOrders();
+    } else if (activeTab === 'menus') {
+      loadMenus();
+    } else if (activeTab === 'menu') {
+      loadMenuItems();
+    }
+  }, [activeTab]); // APENAS activeTab, sem as funções
+
+  // Recarregar quando refreshTrigger mudar (pedido colocado)
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      console.log('🔔 [REFRESH TRIGGER]', refreshTrigger, '- aba ativa:', activeTab);
+      if (activeTab === 'orders') loadOrders();
+      else if (activeTab === 'menus') loadMenus();
+      else if (activeTab === 'menu') loadMenuItems();
+    }
+  }, [refreshTrigger]); // Apenas refreshTrigger
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,13 +124,13 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
     setNewItemName('');
     setNewItemPrice('');
     setNewItemDescription('');
-    loadData();
+    loadMenuItems();
   };
 
   const handleRemoveItem = (id: number) => {
     if (confirm('Deseja remover este item do cardápio?')) {
       removeMenuItem(id);
-      loadData();
+      loadMenuItems();
     }
   };
 
@@ -116,7 +182,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
       setNewMenuActive(true);
       setNewMenuLogo(null);
       setMenuLogoPreview(null);
-      loadData();
+      loadMenus();
     } catch (error) {
       console.error('Erro ao criar cardápio:', error);
       alert('Erro ao criar cardápio. Tente novamente.');
@@ -128,7 +194,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const handleRemoveMenu = (id: number) => {
     if (confirm('Deseja remover este cardápio?')) {
       removeMenu(id);
-      loadData();
+      loadMenus();
     }
   };
 
@@ -153,6 +219,17 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
     });
   };
 
+  // Componente de erro reutilizável
+  const ErrorMessage = ({ message }: { message: string }) => (
+    <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+      <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+      <div>
+        <p className="text-red-800">{message}</p>
+        <p className="text-red-600 text-sm mt-1">Verifique sua conexão ou tente novamente.</p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-6xl mx-auto">
@@ -174,7 +251,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
             >
               <div className="flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5" />
-                Pedidos ({orders.length})
+                Pedidos {!loadingOrders && `(${orders.length})`}
               </div>
             </button>
             <button
@@ -187,7 +264,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
             >
               <div className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
-                Cardápios ({menus.length})
+                Cardápios {!loadingMenus && `(${menus.length})`}
               </div>
             </button>
             <button
@@ -200,7 +277,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
             >
               <div className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
-                Itens ({menuItems.length})
+                Itens {!loadingItems && `(${menuItems.length})`}
               </div>
             </button>
           </div>
@@ -210,7 +287,14 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
             <div>
               <h2 className="text-slate-700 mb-4">Pedidos Realizados</h2>
               
-              {orders.length === 0 ? (
+              {loadingOrders ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader className="w-6 h-6 animate-spin text-slate-400 mr-2" />
+                  <p className="text-gray-500">Carregando pedidos...</p>
+                </div>
+              ) : errorOrders ? (
+                <ErrorMessage message={errorOrders} />
+              ) : orders.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <ShoppingBag className="w-16 h-16 mx-auto mb-4 opacity-20" />
                   <p>Nenhum pedido realizado ainda</p>
@@ -359,15 +443,21 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
                 </button>
               </form>
 
-              {/* Menus List */}
-              <div className="space-y-3">
-                {menus.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                    <p>Nenhum cardápio criado ainda</p>
-                  </div>
-                ) : (
-                  menus.map(menu => (
+              {loadingMenus ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader className="w-6 h-6 animate-spin text-slate-400 mr-2" />
+                  <p className="text-gray-500">Carregando cardápios...</p>
+                </div>
+              ) : errorMenus ? (
+                <ErrorMessage message={errorMenus} />
+              ) : menus.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                  <p>Nenhum cardápio criado ainda</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {menus.map(menu => (
                     <div
                       key={menu.id}
                       className="bg-white border border-slate-200 rounded-lg p-4 flex items-start justify-between hover:shadow-md transition-shadow gap-4"
@@ -406,9 +496,9 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
                         <Trash2 className="w-5 h-5" />
                       </button>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -471,29 +561,44 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
                 </button>
               </form>
 
-              {/* Menu Items List */}
-              <div className="space-y-3">
-                {menuItems.map(item => (
-                  <div key={item.id} className="bg-white border border-slate-200 rounded-lg p-4 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div className="flex-1">
-                      <h3 className="text-gray-900">{item.name}</h3>
-                      {item.description && (
-                        <p className="text-gray-600 text-sm">{item.description}</p>
-                      )}
-                      <p className="text-green-600 mt-1">
-                        R$ {item.price.toFixed(2)}
-                      </p>
+              {loadingItems ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader className="w-6 h-6 animate-spin text-slate-400 mr-2" />
+                  <p className="text-gray-500">Carregando itens...</p>
+                </div>
+              ) : errorItems ? (
+                <ErrorMessage message={errorItems} />
+              ) : (
+                <div className="space-y-3">
+                  {menuItems.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                      <p>Nenhum item no cardápio ainda</p>
                     </div>
-                    <button
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Remover item"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ) : (
+                    menuItems.map(item => (
+                      <div key={item.id} className="bg-white border border-slate-200 rounded-lg p-4 flex items-center justify-between hover:shadow-md transition-shadow">
+                        <div className="flex-1">
+                          <h3 className="text-gray-900">{item.name}</h3>
+                          {item.description && (
+                            <p className="text-gray-600 text-sm">{item.description}</p>
+                          )}
+                          <p className="text-green-600 mt-1">
+                            R$ {item.price.toFixed(2)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remover item"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

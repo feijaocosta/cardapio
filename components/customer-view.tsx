@@ -65,10 +65,9 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
     const orderItems = menuItems
       .filter(item => (quantities[item.id] || 0) > 0)
       .map(item => ({
-        menuItemId: item.id,
-        name: item.name,
+        itemId: item.id,
         quantity: quantities[item.id],
-        price: item.price,
+        unitPrice: item.price,
       }));
 
     if (orderItems.length === 0) {

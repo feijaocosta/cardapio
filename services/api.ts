@@ -7,10 +7,10 @@ export interface MenuItem {
 }
 
 export interface OrderItem {
-  menuItemId: number;
-  name: string;
+  itemId: number;
+  name?: string;
   quantity: number;
-  price: number;
+  unitPrice: number;
 }
 
 export interface Order {
