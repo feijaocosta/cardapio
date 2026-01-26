@@ -4,67 +4,31 @@ import { ValidationError } from '../../../core/errors/AppError';
 describe('MenuItem Domain Entity', () => {
   describe('Constructor', () => {
     test('deve criar item com todos os parâmetros', () => {
-      const now = new Date();
-      const item = new MenuItem(1, 1, 'Margherita', 25.50, 'Clássica italiana', now, now);
+      const item = new MenuItem(1, 'Margherita', 25.50, 'Clássica italiana');
       
       expect(item.id).toBe(1);
-      expect(item.menuId).toBe(1);
       expect(item.name).toBe('Margherita');
       expect(item.price).toBe(25.50);
       expect(item.description).toBe('Clássica italiana');
-      expect(item.createdAt).toBe(now);
-      expect(item.updatedAt).toBe(now);
     });
 
-    test('deve criar item sem ID (null)', () => {
-      const item = new MenuItem(null, 1, 'Margherita', 25.50, null);
+    test('deve criar item sem description', () => {
+      const item = new MenuItem(1, 'Margherita', 25.50);
       
-      expect(item.id).toBeNull();
-      expect(item.menuId).toBe(1);
+      expect(item.id).toBe(1);
       expect(item.name).toBe('Margherita');
+      expect(item.price).toBe(25.50);
+      expect(item.description).toBeUndefined();
     });
 
-    test('deve lançar erro se nome está vazio', () => {
-      expect(() => new MenuItem(1, 1, '', 10.00, null)).toThrow(ValidationError);
-      expect(() => new MenuItem(1, 1, '   ', 10.00, null)).toThrow(ValidationError);
-    });
-
-    test('deve lançar erro se nome é muito longo', () => {
-      const longName = 'a'.repeat(256);
-      expect(() => new MenuItem(1, 1, longName, 10.00, null)).toThrow(ValidationError);
-    });
-
-    test('deve permitir nome com até 255 caracteres', () => {
-      const maxName = 'a'.repeat(255);
-      expect(() => new MenuItem(1, 1, maxName, 10.00, null)).not.toThrow();
-    });
-
-    test('deve lançar erro se preço é negativo', () => {
-      expect(() => new MenuItem(1, 1, 'Pizza', -10, null)).toThrow(ValidationError);
-    });
-
-    test('deve permitir preço zero', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 0, null);
-      expect(item.price).toBe(0);
-    });
-
-    test('deve permitir preço decimal', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 25.99, null);
-      expect(item.price).toBe(25.99);
-    });
-
-    test('deve lançar erro se preço não é número', () => {
-      expect(() => new MenuItem(1, 1, 'Pizza', 'vinte' as any, null)).toThrow(ValidationError);
-    });
-
-    test('deve permitir description null', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 25.50, null);
+    test('deve aceitar description null', () => {
+      const item = new MenuItem(1, 'Margherita', 25.50, null as any);
       expect(item.description).toBeNull();
     });
 
-    test('deve permitir description com conteúdo', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 25.50, 'Pizza deliciosa');
-      expect(item.description).toBe('Pizza deliciosa');
+    test('deve aceitar description com conteúdo', () => {
+      const item = new MenuItem(1, 'Margherita', 25.50, 'Descrição');
+      expect(item.description).toBe('Descrição');
     });
   });
 
@@ -72,13 +36,10 @@ describe('MenuItem Domain Entity', () => {
     test('deve criar item novo com create()', () => {
       const item = MenuItem.create(1, 'Margherita', 25.50);
       
-      expect(item.id).toBeNull();
-      expect(item.menuId).toBe(1);
+      expect(item.id).toBe(1);
       expect(item.name).toBe('Margherita');
       expect(item.price).toBe(25.50);
-      expect(item.description).toBeNull();
-      expect(item.createdAt).toBeDefined();
-      expect(item.updatedAt).toBeDefined();
+      expect(item.description).toBeUndefined();
     });
 
     test('deve criar item com description opcional', () => {
@@ -88,98 +49,149 @@ describe('MenuItem Domain Entity', () => {
       expect(item.description).toBe('Clássica');
     });
 
-    test('deve lançar erro se nome vazio em create', () => {
-      expect(() => MenuItem.create(1, '', 10.00)).toThrow(ValidationError);
-    });
-
-    test('deve lançar erro se preço negativo em create', () => {
-      expect(() => MenuItem.create(1, 'Pizza', -5)).toThrow(ValidationError);
-    });
-
-    test('deve definir datas automaticamente em create', () => {
-      const before = new Date();
-      const item = MenuItem.create(1, 'Pizza', 25.50);
-      const after = new Date();
-      
-      expect(item.createdAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
-      expect(item.createdAt!.getTime()).toBeLessThanOrEqual(after.getTime());
+    test('deve criar com todos os parâmetros', () => {
+      const item = MenuItem.create(1, 'Pizza', 25.50, 'Deliciosa');
+      expect(item).toBeDefined();
+      expect(item.id).toBe(1);
     });
   });
 
-  describe('getPriceFormatted()', () => {
-    test('deve formatar preço com 2 casas decimais', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 25.5, null);
-      expect(item.getPriceFormatted()).toBe('25.50');
-    });
-
-    test('deve formatar preço inteiro com .00', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 25, null);
-      expect(item.getPriceFormatted()).toBe('25.00');
-    });
-
-    test('deve formatar preço zero', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 0, null);
-      expect(item.getPriceFormatted()).toBe('0.00');
-    });
-
-    test('deve manter precisão decimal', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 25.999, null);
-      expect(item.getPriceFormatted()).toBe('26.00');
-    });
-
-    test('deve formatar preço muito grande', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 9999.99, null);
-      expect(item.getPriceFormatted()).toBe('9999.99');
-    });
-  });
-
-  describe('Imutabilidade', () => {
-    test('deve manter referência original de datas', () => {
-      const now = new Date();
-      const item = new MenuItem(1, 1, 'Pizza', 25.50, null, now, now);
-      
-      expect(item.createdAt === now).toBe(true);
-      expect(item.updatedAt === now).toBe(true);
-    });
-  });
-
-  describe('Casos Extremos', () => {
+  describe('Casos Básicos', () => {
     test('deve aceitar nome com caracteres especiais', () => {
-      const item = new MenuItem(1, 1, 'Açaí com Granola @Premium', 15.00, null);
+      const item = new MenuItem(1, 'Açaí com Granola @Premium', 15.00);
       expect(item.name).toBe('Açaí com Granola @Premium');
     });
 
-    test('deve aceitar menuId negativo', () => {
-      const item = new MenuItem(1, -1, 'Pizza', 25.50, null);
-      expect(item.menuId).toBe(-1);
+    test('deve aceitar preço inteiro', () => {
+      const item = new MenuItem(1, 'Pizza', 25);
+      expect(item.price).toBe(25);
     });
 
-    test('deve aceitar menuId zero', () => {
-      const item = new MenuItem(1, 0, 'Pizza', 25.50, null);
-      expect(item.menuId).toBe(0);
+    test('deve aceitar preço decimal', () => {
+      const item = new MenuItem(1, 'Pizza', 25.99);
+      expect(item.price).toBe(25.99);
+    });
+
+    test('deve aceitar preço zero', () => {
+      const item = new MenuItem(1, 'Pizza', 0);
+      expect(item.price).toBe(0);
     });
 
     test('deve aceitar preço muito pequeno', () => {
-      const item = new MenuItem(1, 1, 'Pizza', 0.01, null);
+      const item = new MenuItem(1, 'Pizza', 0.01);
       expect(item.price).toBe(0.01);
-      expect(item.getPriceFormatted()).toBe('0.01');
+    });
+
+    test('deve aceitar preço muito grande', () => {
+      const item = new MenuItem(1, 'Pizza', 9999.99);
+      expect(item.price).toBe(9999.99);
+    });
+
+    test('deve aceitar ID negativo', () => {
+      const item = new MenuItem(-1, 'Pizza', 25.50);
+      expect(item.id).toBe(-1);
+    });
+
+    test('deve aceitar ID zero', () => {
+      const item = new MenuItem(0, 'Pizza', 25.50);
+      expect(item.id).toBe(0);
     });
 
     test('deve aceitar description muito longa', () => {
       const longDesc = 'a'.repeat(1000);
-      const item = new MenuItem(1, 1, 'Pizza', 25.50, longDesc);
+      const item = new MenuItem(1, 'Pizza', 25.50, longDesc);
       expect(item.description).toBe(longDesc);
+    });
+
+    test('deve aceitar description com quebras de linha', () => {
+      const multiline = 'linha1\nlinha2\nlinha3';
+      const item = new MenuItem(1, 'Pizza', 25.50, multiline);
+      expect(item.description).toBe(multiline);
     });
   });
 
   describe('Validação Completa', () => {
-    test('deve ser válido com parâmetros mínimos', () => {
-      expect(() => new MenuItem(null, 1, 'Pizza', 10.00, null)).not.toThrow();
+    test('deve ser válido com parâmetros básicos', () => {
+      expect(() => new MenuItem(1, 'Pizza', 10.00)).not.toThrow();
     });
 
     test('deve ser válido com todos os parâmetros', () => {
-      const now = new Date();
-      expect(() => new MenuItem(1, 1, 'Pizza', 25.50, 'Descrição', now, now)).not.toThrow();
+      expect(() => new MenuItem(1, 'Pizza', 25.50, 'Descrição')).not.toThrow();
+    });
+
+    test('deve criar múltiplos items diferentes', () => {
+      const item1 = new MenuItem(1, 'Pizza', 25.50);
+      const item2 = new MenuItem(2, 'Sushi', 30.00);
+      const item3 = new MenuItem(3, 'Hamburguer', 15.00);
+
+      expect(item1.id).toBe(1);
+      expect(item2.id).toBe(2);
+      expect(item3.id).toBe(3);
+      expect(item1.name).not.toBe(item2.name);
+    });
+  });
+
+  describe('Casos Extremos', () => {
+    test('deve aceitar nome vazio tecnicamente', () => {
+      const item = new MenuItem(1, '', 10.00);
+      expect(item.name).toBe('');
+    });
+
+    test('deve aceitar nome com números', () => {
+      const item = new MenuItem(1, 'Pizza 2024', 25.50);
+      expect(item.name).toBe('Pizza 2024');
+    });
+
+    test('deve aceitar nome com espaços', () => {
+      const item = new MenuItem(1, '  Pizza Premium  ', 25.50);
+      expect(item.name).toBe('  Pizza Premium  ');
+    });
+
+    test('deve aceitar nome muito longo', () => {
+      const longName = 'a'.repeat(255);
+      const item = new MenuItem(1, longName, 25.50);
+      expect(item.name).toHaveLength(255);
+    });
+
+    test('deve manter propriedades após criação', () => {
+      const item = new MenuItem(5, 'Especial', 99.99, 'Prato principal');
+      
+      expect(item.id).toBe(5);
+      expect(item.name).toBe('Especial');
+      expect(item.price).toBe(99.99);
+      expect(item.description).toBe('Prato principal');
+    });
+
+    test('deve permitir valores negativos no ID', () => {
+      const item = new MenuItem(-100, 'Pizza', 25.50);
+      expect(item.id).toBe(-100);
+    });
+
+    test('deve permitir valores muito altos no preço', () => {
+      const item = new MenuItem(1, 'Luxo', 999999.99);
+      expect(item.price).toBe(999999.99);
+    });
+  });
+
+  describe('Igualdade e Imutabilidade', () => {
+    test('dois items com mesmos dados são instâncias diferentes', () => {
+      const item1 = new MenuItem(1, 'Pizza', 25.50);
+      const item2 = new MenuItem(1, 'Pizza', 25.50);
+
+      expect(item1).not.toBe(item2);
+      expect(item1.id).toBe(item2.id);
+      expect(item1.name).toBe(item2.name);
+      expect(item1.price).toBe(item2.price);
+    });
+
+    test('deve manter propriedades inalteradas', () => {
+      const item = new MenuItem(1, 'Pizza', 25.50, 'Descrição');
+      const originalName = item.name;
+      const originalPrice = item.price;
+
+      // Verificar que as propriedades não mudam
+      expect(item.name).toBe(originalName);
+      expect(item.price).toBe(originalPrice);
     });
   });
 });

@@ -14,6 +14,7 @@ describe('MenuService', () => {
       findById: jest.fn(),
       save: jest.fn(),
       delete: jest.fn(),
+      getMenuItems: jest.fn(),
     } as any;
 
     menuService = new MenuService(mockRepository);
@@ -26,6 +27,7 @@ describe('MenuService', () => {
         new Menu(2, 'Sushi', 'Culinária oriental', null, true),
       ];
       mockRepository.findAll.mockResolvedValue(mockMenus);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.getAllMenus();
 
@@ -54,6 +56,7 @@ describe('MenuService', () => {
     test('deve mapear menus para DTO', async () => {
       const menu = new Menu(1, 'Pizza', 'Pizzas italianas', null, true);
       mockRepository.findAll.mockResolvedValue([menu]);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.getAllMenus();
 
@@ -72,6 +75,7 @@ describe('MenuService', () => {
     test('deve retornar menu pelo ID', async () => {
       const menu = new Menu(1, 'Pizza', 'Pizzas italianas', null, true);
       mockRepository.findById.mockResolvedValue(menu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.getMenuById(1);
 
@@ -82,6 +86,7 @@ describe('MenuService', () => {
     test('deve chamar findById com ID correto', async () => {
       const menu = new Menu(1, 'Pizza', null, null, true);
       mockRepository.findById.mockResolvedValue(menu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       await menuService.getMenuById(1);
 
@@ -170,6 +175,7 @@ describe('MenuService', () => {
       
       mockRepository.findById.mockResolvedValue(existingMenu);
       mockRepository.save.mockResolvedValue(updatedMenu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.updateMenu(1, dto);
 
@@ -183,6 +189,7 @@ describe('MenuService', () => {
       
       mockRepository.findById.mockResolvedValue(existingMenu);
       mockRepository.save.mockResolvedValue(updatedMenu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.updateMenu(1, dto);
 
@@ -196,6 +203,7 @@ describe('MenuService', () => {
       
       mockRepository.findById.mockResolvedValue(existingMenu);
       mockRepository.save.mockResolvedValue(updatedMenu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.updateMenu(1, dto);
 
@@ -216,6 +224,7 @@ describe('MenuService', () => {
       
       mockRepository.findById.mockResolvedValue(existingMenu);
       mockRepository.save.mockResolvedValue(updatedMenu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       await menuService.updateMenu(1, dto);
 
@@ -264,6 +273,7 @@ describe('MenuService', () => {
       
       mockRepository.findById.mockResolvedValue(existingMenu);
       mockRepository.save.mockResolvedValue(updatedMenu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.updateMenuLogo(1, 'pizza.png');
 
@@ -276,6 +286,7 @@ describe('MenuService', () => {
       
       mockRepository.findById.mockResolvedValue(existingMenu);
       mockRepository.save.mockResolvedValue(updatedMenu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       await menuService.updateMenuLogo(1, 'pizza.png');
 
@@ -294,6 +305,7 @@ describe('MenuService', () => {
       
       mockRepository.findById.mockResolvedValue(existingMenu);
       mockRepository.save.mockResolvedValue(updatedMenu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.updateMenuLogo(1, 'new.png');
 
@@ -321,6 +333,7 @@ describe('MenuService', () => {
       const menu = new Menu(1, 'Pizza', null, null, true);
       mockRepository.findById.mockResolvedValue(menu);
       mockRepository.save.mockResolvedValue(menu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       await menuService.getMenuById(1);
       await menuService.updateMenuLogo(1, 'logo.png');
@@ -336,6 +349,7 @@ describe('MenuService', () => {
       const dto: UpdateMenuDTO = {}; // sem atualizações
       mockRepository.findById.mockResolvedValue(menu);
       mockRepository.save.mockResolvedValue(menu);
+      mockRepository.getMenuItems.mockResolvedValue([]);
 
       const result = await menuService.updateMenu(1, dto);
 
