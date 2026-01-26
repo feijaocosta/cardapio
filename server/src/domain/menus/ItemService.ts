@@ -54,11 +54,29 @@ export class ItemService {
   }
 
   async addItemToMenu(dto: AddItemToMenuDTO): Promise<void> {
+    // Validar se item existe
     const item = await this.itemRepository.findById(dto.itemId);
     if (!item) {
       throw new NotFoundError('Item', dto.itemId);
     }
-    await this.itemRepository.addItemToMenu(dto.menuId, dto.itemId);
+
+    // Validar se menu existe
+    const menus = await this.itemRepository.getMenusByItemId(dto.itemId);
+    
+    // Verificar se item já está associado a este menu
+    if (menus.includes(dto.menuId)) {
+      throw new Error('Este item já está associado a este menu');
+    }
+
+    try {
+      await this.itemRepository.addItemToMenu(dto.menuId, dto.itemId);
+    } catch (error: any) {
+      // Tratar erro de constraint UNIQUE
+      if (error.code === 'SQLITE_CONSTRAINT' || error.errno === 19) {
+        throw new Error('Este item já está associado a este menu');
+      }
+      throw error;
+    }
   }
 
   async removeItemFromMenu(menuId: number, itemId: number): Promise<void> {

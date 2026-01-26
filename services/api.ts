@@ -248,15 +248,15 @@ export async function getMenuItemsByMenuId(menuId: number): Promise<MenuItem[]> 
   return fetchAPI<MenuItem[]>(`/api/items/menu/${menuId}`);
 }
 
-export async function addItemToMenu(menuId: number, itemId: number): Promise<void> {
-  await fetchAPI(`/api/items`, {
+export async function addItemToMenu(itemId: number, menuId: number): Promise<void> {
+  await fetchAPI(`/api/items/${itemId}/menus`, {
     method: 'POST',
-    body: JSON.stringify({ menuId, id: itemId }),
+    body: JSON.stringify({ menuId }),
   });
 }
 
 export async function removeItemFromMenu(menuId: number, itemId: number): Promise<void> {
-  await fetchAPI(`/api/items/${itemId}`, {
+  await fetchAPI(`/api/items/${itemId}/menus/${menuId}`, {
     method: 'DELETE',
   });
 }

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { MenuService } from '../../../domain/menus/MenuService';
 import { ItemService } from '../../../domain/menus/ItemService';
-import { CreateMenuDTO, UpdateMenuDTO } from '../../../application/dtos/menu';
+import { CreateMenuDTO, UpdateMenuDTO, MenuResponseDTO } from '../../../application/dtos/menu';
 import { AddItemToMenuDTO } from '../../../application/dtos/item';
 import { generateImageFilename, processAndSaveImage, deleteImageFile, UPLOAD_DIR_PATH } from '../../../middleware/upload';
 import path from 'path';

@@ -61,6 +61,17 @@ export class MenuRepository implements IMenuRepository {
     return rows.map(row => row.item_id);
   }
 
+  async getItemsByMenuId(menuId: number): Promise<any[]> {
+    const rows = await this.db.all<any[]>(
+      `SELECT i.* FROM items i 
+       INNER JOIN menu_items mi ON i.id = mi.item_id 
+       WHERE mi.menu_id = ? 
+       ORDER BY i.name`,
+      menuId
+    );
+    return rows;
+  }
+
   private toDomain(row: any): Menu {
     return new Menu(
       row.id,

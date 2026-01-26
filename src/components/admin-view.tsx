@@ -588,18 +588,21 @@ function MenuCard({ menu, allMenuItems, onToggleActive, onRemove, onUpdate }: Me
 
   const handleAddItem = async (itemId: number) => {
     try {
-      await addItemToMenu(menu.id, itemId);
-      await onUpdate();
+      await addItemToMenu(itemId, menu.id);
       
-      // Atualiza as listas localmente
-      const items = await getMenuItemsByMenuId(menu.id);
-      setMenuItems(items);
-      const itemIds = new Set(items.map(i => i.id));
-      const available = allMenuItems.filter(i => !itemIds.has(i.id));
-      setAvailableItems(available);
-    } catch (error) {
+      // Atualiza as listas localmente imediatamente
+      const addedItem = allMenuItems.find(i => i.id === itemId);
+      if (addedItem) {
+        setMenuItems([...menuItems, addedItem]);
+        setAvailableItems(availableItems.filter(i => i.id !== itemId));
+      }
+      
+      // Recarrega do servidor para garantir sincronização
+      await onUpdate();
+    } catch (error: any) {
       console.error('Erro ao adicionar item ao cardápio:', error);
-      alert('Erro ao adicionar item. Por favor, tente novamente.');
+      const errorMsg = error.message || 'Erro ao adicionar item. Por favor, tente novamente.';
+      alert(errorMsg);
     }
   };
 
@@ -607,14 +610,16 @@ function MenuCard({ menu, allMenuItems, onToggleActive, onRemove, onUpdate }: Me
     if (confirm('Remover este item do cardápio?')) {
       try {
         await removeItemFromMenu(menu.id, itemId);
-        await onUpdate();
         
-        // Atualiza as listas localmente
-        const items = await getMenuItemsByMenuId(menu.id);
-        setMenuItems(items);
-        const itemIds = new Set(items.map(i => i.id));
-        const available = allMenuItems.filter(i => !itemIds.has(i.id));
-        setAvailableItems(available);
+        // Atualiza as listas localmente imediatamente
+        const removedItem = menuItems.find(i => i.id === itemId);
+        if (removedItem) {
+          setMenuItems(menuItems.filter(i => i.id !== itemId));
+          setAvailableItems([...availableItems, removedItem]);
+        }
+        
+        // Recarrega do servidor para garantir sincronização
+        await onUpdate();
       } catch (error) {
         console.error('Erro ao remover item do cardápio:', error);
         alert('Erro ao remover item. Por favor, tente novamente.');

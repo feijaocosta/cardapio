@@ -23,6 +23,7 @@ export class ItemController {
   }
 
   async create(req: Request, res: Response): Promise<void> {
+    // Criar NOVO item - requer name, price, etc
     const dto = new CreateItemDTO(req.body);
     const item = await this.itemService.createItem(dto);
     res.status(201).json(item);
@@ -42,10 +43,21 @@ export class ItemController {
   }
 
   async addItemToMenu(req: Request, res: Response): Promise<void> {
+    // Associar item EXISTENTE a um menu (N:N)
     const { id } = req.params;
-    const dto = new AddItemToMenuDTO({ menuId: req.body.menuId, itemId: Number(id) });
+    const { menuId } = req.body;
+    
+    const dto = new AddItemToMenuDTO({ 
+      menuId: menuId, 
+      itemId: Number(id) 
+    });
+    
     await this.itemService.addItemToMenu(dto);
-    res.status(201).send();
+    res.status(201).json({ 
+      message: 'Item associado ao menu com sucesso',
+      itemId: Number(id),
+      menuId: menuId
+    });
   }
 
   async removeItemFromMenu(req: Request, res: Response): Promise<void> {
