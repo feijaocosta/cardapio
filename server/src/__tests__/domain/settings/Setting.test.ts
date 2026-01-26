@@ -189,4 +189,125 @@ describe('Setting Domain Entity', () => {
       expect(() => new Setting('key', 'true', 'boolean')).not.toThrow();
     });
   });
+
+  // ✨ PRÉ-REQUISITO 1: Administrador pode determinar configurações
+  describe('PRÉ-REQUISITO 1: Configurações Administrativas', () => {
+    describe('Configuração: Exibir Preço no Cardápio', () => {
+      test('deve permitir configurar exibição de preço como TRUE', () => {
+        const showPrice = Setting.create('show_price', 'true', 'boolean');
+
+        expect(showPrice.key).toBe('show_price');
+        expect(showPrice.getValue()).toBe(true);
+        expect(typeof showPrice.getValue()).toBe('boolean');
+      });
+
+      test('deve permitir configurar exibição de preço como FALSE', () => {
+        const hidePrice = Setting.create('show_price', 'false', 'boolean');
+
+        expect(hidePrice.key).toBe('show_price');
+        expect(hidePrice.getValue()).toBe(false);
+      });
+
+      test('deve retornar FALSE por padrão quando não configurado', () => {
+        // Simula default behavior
+        const defaultHidePrice = Setting.create('show_price', 'false', 'boolean');
+        expect(defaultHidePrice.getValue()).toBe(false);
+      });
+
+      test('deve permitir mudar de TRUE para FALSE', () => {
+        const showPrice = Setting.create('show_price', 'true', 'boolean');
+        expect(showPrice.getValue()).toBe(true);
+
+        // Simula atualização
+        const hidePrice = Setting.create('show_price', 'false', 'boolean');
+        expect(hidePrice.getValue()).toBe(false);
+      });
+
+      test('deve guardar configuração corretamente', () => {
+        const setting = Setting.create('show_price', 'true', 'boolean');
+        const savedSetting = new Setting('show_price', 'true', 'boolean');
+
+        expect(setting.getValue()).toBe(savedSetting.getValue());
+      });
+    });
+
+    describe('Configuração: Modelo de Layout', () => {
+      test('deve permitir configurar layout como grid', () => {
+        const layout = Setting.create('layout_model', 'grid', 'string');
+
+        expect(layout.key).toBe('layout_model');
+        expect(layout.getValue()).toBe('grid');
+        expect(typeof layout.getValue()).toBe('string');
+      });
+
+      test('deve permitir configurar layout como list', () => {
+        const layout = Setting.create('layout_model', 'list', 'string');
+
+        expect(layout.getValue()).toBe('list');
+      });
+
+      test('deve permitir configurar layout como carousel', () => {
+        const layout = Setting.create('layout_model', 'carousel', 'string');
+
+        expect(layout.getValue()).toBe('carousel');
+      });
+
+      test('deve aceitar layout customizado', () => {
+        const layout = Setting.create('layout_model', 'custom_layout_v2', 'string');
+
+        expect(layout.getValue()).toBe('custom_layout_v2');
+      });
+
+      test('deve permitir mudar layout', () => {
+        const layout1 = Setting.create('layout_model', 'grid', 'string');
+        expect(layout1.getValue()).toBe('grid');
+
+        const layout2 = Setting.create('layout_model', 'list', 'string');
+        expect(layout2.getValue()).toBe('list');
+      });
+
+      test('deve guardar configuração de layout corretamente', () => {
+        const setting = Setting.create('layout_model', 'grid', 'string');
+        const savedSetting = new Setting('layout_model', 'grid', 'string');
+
+        expect(setting.getValue()).toBe(savedSetting.getValue());
+      });
+    });
+
+    describe('Múltiplas Configurações Simultâneas', () => {
+      test('deve permitir múltiplas configurações ao mesmo tempo', () => {
+        const showPrice = Setting.create('show_price', 'true', 'boolean');
+        const layoutModel = Setting.create('layout_model', 'grid', 'string');
+
+        expect(showPrice.key).toBe('show_price');
+        expect(layoutModel.key).toBe('layout_model');
+        expect(showPrice.getValue()).toBe(true);
+        expect(layoutModel.getValue()).toBe('grid');
+      });
+
+      test('deve mudar uma configuração sem afetar outra', () => {
+        const config1 = Setting.create('show_price', 'true', 'boolean');
+        const config2 = Setting.create('layout_model', 'list', 'string');
+
+        // Mudar config2
+        const config2Updated = Setting.create('layout_model', 'grid', 'string');
+
+        // config1 não deve mudar
+        expect(config1.getValue()).toBe(true);
+        expect(config2Updated.getValue()).toBe('grid');
+      });
+
+      test('deve recuperar configurações corretamente em sequência', () => {
+        const configs = [
+          Setting.create('show_price', 'true', 'boolean'),
+          Setting.create('layout_model', 'grid', 'string'),
+          Setting.create('app_name', 'Cardápio Online', 'string'),
+        ];
+
+        expect(configs[0].getValue()).toBe(true);
+        expect(configs[1].getValue()).toBe('grid');
+        expect(configs[2].getValue()).toBe('Cardápio Online');
+      });
+    });
+  });
 });

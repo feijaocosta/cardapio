@@ -194,4 +194,166 @@ describe('MenuItem Domain Entity', () => {
       expect(item.price).toBe(originalPrice);
     });
   });
+
+  // ✨ PRÉ-REQUISITO 2: Preço não deve ser obrigatório (exibição é opcional)
+  describe('PRÉ-REQUISITO 2: Preço Opcional do Item', () => {
+    describe('Criar Item SEM Preço', () => {
+      test('deve permitir criar item sem preço (undefined)', () => {
+        const item = new MenuItem(1, 'Brinde', undefined as any);
+
+        expect(item.id).toBe(1);
+        expect(item.name).toBe('Brinde');
+        expect(item.price).toBeUndefined();
+      });
+
+      test('deve permitir criar item com preço null', () => {
+        const item = new MenuItem(1, 'Item Gratuito', null as any);
+
+        expect(item.name).toBe('Item Gratuito');
+        expect(item.price).toBeNull();
+      });
+
+      test('deve permitir criar item sem fornecer preço no construtor', () => {
+        // Simula construtor com preço opcional
+        const item = new MenuItem(1, 'Item Sem Preço');
+
+        expect(item.id).toBe(1);
+        expect(item.name).toBe('Item Sem Preço');
+        // price pode ser undefined quando não fornecido
+      });
+    });
+
+    describe('Factory Method com Preço Opcional', () => {
+      test('deve criar item sem preço usando create()', () => {
+        const item = MenuItem.create(1, 'Brinquedo', undefined as any);
+
+        expect(item.id).toBe(1);
+        expect(item.name).toBe('Brinquedo');
+        expect(item.price).toBeUndefined();
+      });
+
+      test('deve criar item com preço null usando create()', () => {
+        const item = MenuItem.create(1, 'Amostra', null as any);
+
+        expect(item.name).toBe('Amostra');
+        expect(item.price).toBeNull();
+      });
+
+      test('deve criar item sem preço e sem descrição', () => {
+        const item = MenuItem.create(1, 'Item Simples');
+
+        expect(item.id).toBe(1);
+        expect(item.name).toBe('Item Simples');
+        // price não fornecido
+      });
+    });
+
+    describe('Validações com Preço Opcional', () => {
+      test('deve aceitar preço 0 (zero)', () => {
+        const item = new MenuItem(1, 'Cortesia', 0);
+
+        expect(item.price).toBe(0);
+        expect(typeof item.price).toBe('number');
+      });
+
+      test('deve diferenciar entre preço zero e preço undefined', () => {
+        const itemZero = new MenuItem(1, 'Grátis', 0);
+        const itemUndefined = new MenuItem(2, 'Sem Preço', undefined as any);
+
+        expect(itemZero.price).toBe(0);
+        expect(itemUndefined.price).toBeUndefined();
+        expect(itemZero.price).not.toBe(itemUndefined.price);
+      });
+
+      test('deve aceitar preço positivo', () => {
+        const item = new MenuItem(1, 'Pizza', 25.50);
+
+        expect(item.price).toBe(25.50);
+        expect(typeof item.price).toBe('number');
+      });
+
+      test('deve aceitar preço negativo (em caso de devolução/desconto)', () => {
+        const item = new MenuItem(1, 'Desconto', -5.00);
+
+        expect(item.price).toBe(-5.00);
+      });
+    });
+
+    describe('Cenários de Uso Prático', () => {
+      test('Cenário 1: Cardápio com preço visível - item tem preço', () => {
+        // Quando configuração show_price = true
+        const item = new MenuItem(1, 'Margherita', 25.50, 'Pizza clássica');
+
+        expect(item.price).toBe(25.50);
+        expect(item.description).toBe('Pizza clássica');
+      });
+
+      test('Cenário 2: Cardápio com preço oculto - item sem preço', () => {
+        // Quando configuração show_price = false
+        const item = new MenuItem(1, 'Margherita', undefined as any, 'Pizza clássica');
+
+        expect(item.price).toBeUndefined();
+        expect(item.description).toBe('Pizza clássica');
+      });
+
+      test('Cenário 3: Item de brinde/amostra - sem preço', () => {
+        const brinde = new MenuItem(1, 'Brinde da Casa', undefined as any);
+
+        expect(brinde.name).toBe('Brinde da Casa');
+        expect(brinde.price).toBeUndefined();
+      });
+
+      test('Cenário 4: Item com preço 0 - deve diferenciar de sem preço', () => {
+        const free = new MenuItem(1, 'Item Gratuito', 0);
+        const noPriceItem = new MenuItem(2, 'Sem Preço Configurado', undefined as any);
+
+        // Free tem preço 0 (configurado como gratuito)
+        expect(free.price).toBe(0);
+
+        // noPriceItem não tem preço (preço não configurado)
+        expect(noPriceItem.price).toBeUndefined();
+      });
+
+      test('Cenário 5: Múltiplos items com e sem preço', () => {
+        const items = [
+          new MenuItem(1, 'Pizza', 25.50),
+          new MenuItem(2, 'Brinde', undefined as any),
+          new MenuItem(3, 'Amostra', null as any),
+          new MenuItem(4, 'Cortesia', 0),
+        ];
+
+        expect(items[0].price).toBe(25.50);
+        expect(items[1].price).toBeUndefined();
+        expect(items[2].price).toBeNull();
+        expect(items[3].price).toBe(0);
+      });
+    });
+
+    describe('Compatibilidade com Configurações Administrativas', () => {
+      test('deve permitir item sem preço quando show_price = false', () => {
+        // Quando admin configura show_price = false
+        // Item pode ser criado sem preço
+        const item = new MenuItem(1, 'Item', undefined as any);
+
+        expect(item.price).toBeUndefined();
+      });
+
+      test('deve permitir item com preço mesmo quando show_price = false', () => {
+        // Admin pode manter preço guardado mesmo se oculto
+        const item = new MenuItem(1, 'Item com Preço Oculto', 30.00);
+
+        expect(item.price).toBe(30.00);
+      });
+
+      test('deve permitir item com ou sem preço quando show_price = true', () => {
+        // Quando admin configura show_price = true
+        // Item pode ter preço definido
+        const itemComPreço = new MenuItem(1, 'Com Preço', 25.50);
+        const itemSemPreço = new MenuItem(2, 'Sem Preço', undefined as any);
+
+        expect(itemComPreço.price).toBe(25.50);
+        expect(itemSemPreço.price).toBeUndefined();
+      });
+    });
+  });
 });

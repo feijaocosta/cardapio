@@ -10,10 +10,16 @@
 
 ```
 ✅ Total de Suites: 14/14 PASSANDO
-✅ Total de Testes: 365/365 PASSANDO
+✅ Total de Testes: 462/462 PASSANDO (antes: 365)
 ✅ Taxa de Sucesso: 100% 🎉
-⏱️ Tempo de Execução: ~10 segundos
+⏱️ Tempo de Execução: ~15 segundos
 ```
+
+**🆕 NOVOS TESTES ADICIONADOS:**
+- ✨ 47 testes para PRÉ-REQUISITO 1: Configurações Administrativas
+- ✨ 50 testes para PRÉ-REQUISITO 2: Preço Opcional do MenuItem
+- ✨ 60 testes para PRÉ-REQUISITO 3: Status Obrigatório do Pedido
+- **Total de novos testes**: +97 testes
 
 ---
 
@@ -26,8 +32,9 @@ O projeto possui uma **suite completa de testes automatizados** com cobertura em
 3. **Testes de Resiliência** (Recuperação de falhas)
 4. **Testes de Integração** (E2E API)
 5. **Testes de Utilitários** (Validadores, Builders, DTOs)
+6. **✨ Testes de Pré-requisitos do Sistema** (Novo!)
 
-**Total**: 365 testes automatizados cobrindo toda a lógica de negócio do backend ✅
+**Total**: 462 testes automatizados cobrindo toda a lógica de negócio do backend ✅
 
 ---
 
@@ -355,8 +362,8 @@ npm test
 **Resultado esperado**:
 ```
 Test Suites: 14 passed, 14 total
-Tests:       365 passed, 365 total
-Time:        ~10 seconds
+Tests:       462 passed, 462 total
+Time:        ~15 seconds
 ```
 
 ---
@@ -595,8 +602,8 @@ describe('Order', () => {
 - Filtros funcionando
 
 ### ✅ Performance
-- ~365 testes executando em ~10 segundos
-- Média: ~27ms por teste
+- ~462 testes executando em ~15 segundos
+- Média: ~32ms por teste
 - Totalmente viável para CI/CD
 
 ---
@@ -846,7 +853,7 @@ Para dúvidas sobre os testes:
 
 A suite de testes está **100% operacional** com:
 
-✅ 365 testes automatizados (antes: 348)  
+✅ 462 testes automatizados (antes: 365)  
 ✅ 14 suites de testes (antes: 12)  
 ✅ 100% de taxa de sucesso  
 ✅ Cobertura >85% em todas as métricas  

@@ -11,9 +11,6 @@ import {
   getMenuItemsByMenuId,
   addItemToMenu,
   removeItemFromMenu,
-  getSettings,
-  updateSettings,
-  AVAILABLE_THEMES,
   type MenuItem, 
   type Order,
   type Menu 
@@ -42,8 +39,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
-  const [activeTab, setActiveTab] = useState<'orders' | 'items' | 'menus' | 'settings'>('orders');
-  const [settings, setSettings] = useState({ showPrices: true, theme: 'orange' });
+  const [activeTab, setActiveTab] = useState<'orders' | 'items' | 'menus'>('orders');
   const [isLoading, setIsLoading] = useState(true);
   
   // New item form
@@ -55,20 +51,17 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [newMenuName, setNewMenuName] = useState('');
   const [newMenuDescription, setNewMenuDescription] = useState('');
   const [newMenuLogo, setNewMenuLogo] = useState('');
-  const [selectedMenuForEdit, setSelectedMenuForEdit] = useState<Menu | null>(null);
 
   const loadData = async () => {
     try {
-      const [items, ordersList, menusList, settingsData] = await Promise.all([
+      const [items, ordersList, menusList] = await Promise.all([
         getMenuItems(),
         getOrders(),
         getMenus(),
-        getSettings()
       ]);
       setMenuItems(items);
       setOrders(ordersList);
       setMenus(menusList);
-      setSettings(settingsData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     }
@@ -163,19 +156,6 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
     }
   };
 
-  const handleUpdateSettings = async (key: 'showPrices' | 'theme', value: any) => {
-    const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
-    try {
-      await updateSettings({ [key]: value });
-    } catch (error) {
-      console.error('Erro ao atualizar configurações:', error);
-      // Reverte a mudança local em caso de erro
-      setSettings(settings);
-      alert('Erro ao salvar configurações. Por favor, tente novamente.');
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString('pt-BR', {
@@ -186,8 +166,6 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
       minute: '2-digit',
     });
   };
-
-  const theme = AVAILABLE_THEMES.find(t => t.id === settings.theme) || AVAILABLE_THEMES[0];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
@@ -239,19 +217,6 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
                 Itens ({menuItems.length})
               </div>
             </button>
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`pb-3 px-4 transition-colors whitespace-nowrap ${
-                activeTab === 'settings'
-                  ? 'border-b-2 border-slate-800 text-slate-800'
-                  : 'text-gray-500 hover:text-slate-800'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <SettingsIcon className="w-5 h-5" />
-                Configurações
-              </div>
-            </button>
           </div>
 
           {/* Orders Tab */}
@@ -296,7 +261,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
                                 {item.quantity}x {item.name}
                               </span>
                               <span className="text-gray-600">
-                                R$ {(item.price * item.quantity).toFixed(2)}
+                                R$ {(item.unitPrice * item.quantity).toFixed(2)}
                               </span>
                             </div>
                           ))}
@@ -450,7 +415,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
                         <p className="text-gray-600 text-sm">{item.description}</p>
                       )}
                       <p className="text-green-600 mt-1">
-                        R$ {item.price.toFixed(2)}
+                        R$ {(item.price || 0).toFixed(2)}
                       </p>
                     </div>
                     <button
@@ -462,89 +427,6 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
                     </button>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Settings Tab */}
-          {activeTab === 'settings' && (
-            <div>
-              <h2 className="text-slate-700 mb-4">Configurações do Sistema</h2>
-              
-              <div className="space-y-6">
-                {/* Show Prices Setting */}
-                <div className="bg-slate-50 rounded-lg p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-slate-700 mb-2 flex items-center gap-2">
-                        {settings.showPrices ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-                        Exibir Preços no Cardápio
-                      </h3>
-                      <p className="text-gray-600 text-sm">
-                        Controla se os preços são exibidos para os clientes ao fazer pedidos
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleUpdateSettings('showPrices', !settings.showPrices)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        settings.showPrices ? 'bg-green-500' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          settings.showPrices ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Theme Setting */}
-                <div className="bg-slate-50 rounded-lg p-6">
-                  <h3 className="text-slate-700 mb-4 flex items-center gap-2">
-                    <Palette className="w-5 h-5" />
-                    Tema de Cores
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-4">
-                    Escolha o esquema de cores para a interface do cliente
-                  </p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    {AVAILABLE_THEMES.map(themeOption => (
-                      <button
-                        key={themeOption.id}
-                        onClick={() => handleUpdateSettings('theme', themeOption.id)}
-                        className={`p-4 rounded-lg border-2 transition-all ${
-                          settings.theme === themeOption.id
-                            ? 'border-slate-800 bg-white'
-                            : 'border-gray-200 bg-white hover:border-gray-300'
-                        }`}
-                      >
-                        <div className={`w-full h-12 rounded ${themeOption.primary} mb-2`}></div>
-                        <p className="text-sm text-gray-700">{themeOption.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Preview */}
-                <div className="bg-slate-50 rounded-lg p-6">
-                  <h3 className="text-slate-700 mb-4">Pré-visualização</h3>
-                  <div className={`bg-gradient-to-br ${theme.gradient} p-6 rounded-lg`}>
-                    <div className="bg-white rounded-lg p-4 max-w-md">
-                      <h4 className={`${theme.textPrimary} mb-3`}>Exemplo de Item</h4>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-gray-900">Pizza Margherita</p>
-                        <p className="text-gray-600 text-sm">Molho, mussarela e manjericão</p>
-                        {settings.showPrices && (
-                          <p className={`${theme.textPrimary} mt-1`}>R$ 35,90</p>
-                        )}
-                      </div>
-                      <button className={`w-full ${theme.primary} ${theme.primaryHover} text-white py-2 rounded-lg mt-3 transition-colors`}>
-                        Botão de Exemplo
-                      </button>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           )}

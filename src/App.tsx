@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { CustomerView } from './components/customer-view';
 import { AdminView } from './components/admin-view';
+import { SettingsView } from '../components/settings-view';
 import { Store, Settings } from 'lucide-react';
 import { initDatabase } from '../services/api';
 
 export default function App() {
-  const [view, setView] = useState<'customer' | 'admin'>('customer');
+  const [view, setView] = useState<'customer' | 'admin' | 'settings'>('customer');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +24,10 @@ export default function App() {
 
   const handleOrderPlaced = () => {
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleSettingsChange = () => {
+    setView('customer');
   };
 
   if (isLoading) {
@@ -70,7 +75,7 @@ export default function App() {
             <h2 className="text-gray-800 flex items-center gap-2">
               Sistema de Pedidos
             </h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setView('customer')}
                 className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
@@ -93,6 +98,17 @@ export default function App() {
                 <Settings className="w-4 h-4" />
                 Admin
               </button>
+              <button
+                onClick={() => setView('settings')}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                  view === 'settings'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                ⚙️ Configurações
+              </button>
             </div>
           </div>
         </div>
@@ -101,8 +117,10 @@ export default function App() {
       {/* Content */}
       {view === 'customer' ? (
         <CustomerView onOrderPlaced={handleOrderPlaced} />
-      ) : (
+      ) : view === 'admin' ? (
         <AdminView refreshTrigger={refreshTrigger} />
+      ) : (
+        <SettingsView onSettingsChange={handleSettingsChange} />
       )}
     </div>
   );

@@ -1,13 +1,5 @@
 import { useState, useEffect } from 'react';
-import { 
-  getActiveMenus, 
-  getMenuItemsByMenuId, 
-  addOrder, 
-  getSettings, 
-  AVAILABLE_THEMES,
-  type MenuItem, 
-  type Menu 
-} from '../../services/api';
+import { getActiveMenus, getMenuItemsByMenuId, addOrder, type MenuItem, type Menu } from '../../services/api';
 import { ShoppingCart, Plus, Minus, ChevronLeft, Image as ImageIcon } from 'lucide-react';
 
 interface CustomerViewProps {
@@ -21,17 +13,12 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const [customerName, setCustomerName] = useState('');
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
-  const [settings, setSettings] = useState({ showPrices: true, theme: 'orange' });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [loadedSettings, loadedMenus] = await Promise.all([
-          getSettings(),
-          getActiveMenus()
-        ]);
-        setSettings(loadedSettings);
+        const loadedMenus = await getActiveMenus();
         setMenus(loadedMenus);
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -67,7 +54,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const calculateTotal = () => {
     return menuItems.reduce((total, item) => {
       const quantity = quantities[item.id] || 0;
-      return total + (item.price * quantity);
+      return total + ((item.price || 0) * quantity);
     }, 0);
   };
 
@@ -84,7 +71,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
       .map(item => ({
         itemId: item.id,
         quantity: quantities[item.id],
-        unitPrice: item.price,
+        unitPrice: item.price || 0,
       }));
 
     if (orderItems.length === 0) {
@@ -100,7 +87,6 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
         menuId: selectedMenu?.id,
       });
 
-      // Reset form
       setCustomerName('');
       setQuantities({});
       setShowSuccess(true);
@@ -124,11 +110,9 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const total = calculateTotal();
   const hasItems = Object.values(quantities).some(q => q > 0);
 
-  const theme = AVAILABLE_THEMES.find(t => t.id === settings.theme) || AVAILABLE_THEMES[0];
-
   if (isLoading) {
     return (
-      <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} p-6`}>
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -142,10 +126,10 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   // Menu Selection Screen
   if (!selectedMenu) {
     return (
-      <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} p-6`}>
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-8">
-            <h1 className={`${theme.textPrimary} mb-2 flex items-center gap-2`}>
+            <h1 className="text-orange-600 mb-2 flex items-center gap-2">
               <ShoppingCart className="w-8 h-8" />
               Selecione um Cardápio
             </h1>
@@ -193,7 +177,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
 
   // Order Screen
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} p-6`}>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
           <button
@@ -212,7 +196,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
                 className="w-full h-48 object-cover rounded-lg mb-4"
               />
             ) : null}
-            <h1 className={`${theme.textPrimary} mb-2 flex items-center gap-2`}>
+            <h1 className="text-orange-600 mb-2 flex items-center gap-2">
               <ShoppingCart className="w-8 h-8" />
               {selectedMenu.name}
             </h1>
@@ -236,7 +220,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-${settings.theme}-500`}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 placeholder="Digite seu nome"
                 required
               />
@@ -256,8 +240,8 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
                         {item.description && (
                           <p className="text-gray-600 text-sm">{item.description}</p>
                         )}
-                        {settings.showPrices && (
-                          <p className={`${theme.textPrimary} mt-1`}>
+                        {item.price !== undefined && (
+                          <p className="text-orange-600 mt-1">
                             R$ {item.price.toFixed(2)}
                           </p>
                         )}
@@ -278,7 +262,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.id, 1)}
-                          className={`w-8 h-8 ${theme.primary} ${theme.primaryHover} text-white rounded-full flex items-center justify-center transition-colors`}
+                          className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center transition-colors"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -287,11 +271,11 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
                   ))}
                 </div>
 
-                {hasItems && settings.showPrices && (
-                  <div className={`bg-${settings.theme}-100 rounded-lg p-4 mb-6`}>
+                {hasItems && (
+                  <div className="bg-orange-100 rounded-lg p-4 mb-6">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-700">Total:</span>
-                      <span className={theme.textPrimary}>
+                      <span className="text-orange-600 font-bold">
                         R$ {total.toFixed(2)}
                       </span>
                     </div>
@@ -300,7 +284,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
 
                 <button
                   type="submit"
-                  className={`w-full ${theme.primary} ${theme.primaryHover} text-white py-3 rounded-lg transition-colors`}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg transition-colors"
                 >
                   Fazer Pedido
                 </button>

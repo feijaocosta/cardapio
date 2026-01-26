@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getMenuItems, addMenuItem, removeMenuItem, getOrders, getMenus, addMenuWithLogo, removeMenu, type MenuItem, type Order, type Menu } from '../services/api';
+import { getMenuItems, addMenuItem, removeMenuItem, getOrders, getMenus, addMenuWithLogo, removeMenu, updateOrderStatus, type MenuItem, type Order, type Menu } from '../services/api';
 import { Settings, Plus, Trash2, ShoppingBag, Clock, User, Package, X, AlertCircle, Loader, RotateCcw } from 'lucide-react';
 
 interface AdminViewProps {
@@ -10,7 +10,7 @@ export function AdminView({ refreshTrigger = 0 }: AdminViewProps) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
-  const [activeTab, setActiveTab] = useState<'menus' | 'menu' | 'orders'>('orders');
+  const [activeTab, setActiveTab] = useState<'menus' | 'menu' | 'orders' | 'settings'>('orders');
   
   // Loading e Error states por seção
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -84,6 +84,39 @@ export function AdminView({ refreshTrigger = 0 }: AdminViewProps) {
       setLoadingItems(false);
     }
   }, []);
+
+  // ✅ PRÉ-REQUISITO 3: Função para mudar status de pedido
+  const handleChangeOrderStatus = async (orderId: number, newStatus: string) => {
+    try {
+      await updateOrderStatus(orderId, newStatus as any);
+      loadOrders(); // Recarregar lista
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      alert('Erro ao atualizar status do pedido. Tente novamente.');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, { bg: string; text: string; border: string }> = {
+      'Pendente': { bg: 'bg-yellow-50', text: 'text-yellow-800', border: 'border-yellow-200' },
+      'Em preparação': { bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-200' },
+      'Pronto': { bg: 'bg-green-50', text: 'text-green-800', border: 'border-green-200' },
+      'Entregue': { bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-200' },
+      'Cancelado': { bg: 'bg-red-50', text: 'text-red-800', border: 'border-red-200' },
+    };
+    return colors[status] || colors['Pendente'];
+  };
+
+  const getStatusIcon = (status: string) => {
+    const icons: Record<string, string> = {
+      'Pendente': '⏳',
+      'Em preparação': '👨‍🍳',
+      'Pronto': '✅',
+      'Entregue': '🚚',
+      'Cancelado': '❌',
+    };
+    return icons[status] || '❓';
+  };
 
   // Carregar dados quando a aba mudar - SEM dependency array das funções para evitar loops
   useEffect(() => {
@@ -335,6 +368,35 @@ export function AdminView({ refreshTrigger = 0 }: AdminViewProps) {
                               </span>
                             </div>
                           ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <div className="text-sm text-gray-600 mb-2">Status:</div>
+                        <div className={`p-2 rounded-lg ${getStatusColor(order.status).bg} ${getStatusColor(order.status).border}`}>
+                          <span className={`text-sm ${getStatusColor(order.status).text}`}>
+                            {getStatusIcon(order.status)} {order.status}
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <button
+                            onClick={() => handleChangeOrderStatus(order.id, 'Em preparação')}
+                            className="text-blue-500 hover:text-blue-700 text-sm mr-2"
+                          >
+                            Em preparação
+                          </button>
+                          <button
+                            onClick={() => handleChangeOrderStatus(order.id, 'Pronto')}
+                            className="text-green-500 hover:text-green-700 text-sm mr-2"
+                          >
+                            Pronto
+                          </button>
+                          <button
+                            onClick={() => handleChangeOrderStatus(order.id, 'Entregue')}
+                            className="text-purple-500 hover:text-purple-700 text-sm"
+                          >
+                            Entregue
+                          </button>
                         </div>
                       </div>
                     </div>

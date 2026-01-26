@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getMenuItems, addOrder, getMenus, type MenuItem, type Menu } from '../services/api';
+import { getMenuItems, addOrder, getMenus, getShowPrice, getLayoutModel, type MenuItem, type Menu } from '../services/api';
 import { ShoppingCart, Plus, Minus } from 'lucide-react';
 
 interface CustomerViewProps {
@@ -14,6 +14,8 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPrice, setShowPrice] = useState(true);
+  const [layoutModel, setLayoutModel] = useState<'grid' | 'list' | 'carousel'>('grid');
 
   const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
 
@@ -21,12 +23,16 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [items, menusList] = await Promise.all([
+        const [items, menusList, showPriceConfig, layoutConfig] = await Promise.all([
           getMenuItems(),
-          getMenus()
+          getMenus(),
+          getShowPrice(),
+          getLayoutModel()
         ]);
         setMenuItems(items);
         setMenus(menusList);
+        setShowPrice(showPriceConfig);
+        setLayoutModel(layoutConfig);
         setError(null);
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
@@ -50,7 +56,8 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const calculateTotal = () => {
     return menuItems.reduce((total, item) => {
       const quantity = quantities[item.id] || 0;
-      return total + (item.price * quantity);
+      const price = item.price || 0;
+      return total + (price * quantity);
     }, 0);
   };
 
@@ -67,7 +74,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
       .map(item => ({
         itemId: item.id,
         quantity: quantities[item.id],
-        unitPrice: item.price,
+        unitPrice: item.price || 0,
       }));
 
     if (orderItems.length === 0) {
@@ -82,7 +89,6 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
         total: calculateTotal(),
       });
 
-      // Reset form
       setCustomerName('');
       setQuantities({});
       setShowSuccess(true);
@@ -138,7 +144,7 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Cardápios */}
         {menus.length > 0 && (
           <div className="mb-6">
@@ -201,41 +207,138 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
               </div>
             ) : (
               <>
-                <div className="space-y-4 mb-6">
-                  {menuItems.map(item => (
-                    <div key={item.id} className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-gray-900">{item.name}</h3>
-                        {item.description && (
-                          <p className="text-gray-600 text-sm">{item.description}</p>
-                        )}
-                        <p className="text-orange-600 mt-1">
-                          R$ {item.price.toFixed(2)}
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 ml-4">
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.id, -1)}
-                          className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
-                          disabled={!quantities[item.id]}
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="w-8 text-center font-medium">
-                          {quantities[item.id] || 0}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.id, 1)}
-                          className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
+                <div className={`mb-6 ${
+                  layoutModel === 'grid' ? 'space-y-4' :
+                  layoutModel === 'list' ? 'space-y-2' :
+                  'overflow-x-auto pb-4'
+                }`}>
+                  {layoutModel === 'grid' && (
+                    <div className="space-y-4">
+                      {menuItems.map(item => (
+                        <div key={item.id} className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="text-gray-900">{item.name}</h3>
+                            {item.description && (
+                              <p className="text-gray-600 text-sm">{item.description}</p>
+                            )}
+                            {showPrice && item.price !== undefined && (
+                              <p className="text-orange-600 mt-1">
+                                R$ {item.price.toFixed(2)}
+                              </p>
+                            )}
+                            {!showPrice && item.price !== undefined && (
+                              <p className="text-gray-500 text-xs mt-1 italic">
+                                (Consulte o telefone para preço)
+                              </p>
+                            )}
+                            {item.price === undefined && (
+                              <p className="text-gray-500 text-xs mt-1 italic">
+                                (Consulte para informações de preço)
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-3 ml-4">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
+                              disabled={!quantities[item.id]}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <span className="w-8 text-center font-medium">
+                              {quantities[item.id] || 0}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center transition-colors"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+
+                  {layoutModel === 'list' && (
+                    <div className="space-y-2 border border-gray-200 rounded-lg overflow-hidden">
+                      {menuItems.map((item, idx) => (
+                        <div key={item.id} className={`flex items-center justify-between p-3 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-gray-900 text-sm font-medium">{item.name}</h3>
+                            {showPrice && item.price !== undefined && (
+                              <p className="text-orange-600 text-xs">
+                                R$ {item.price.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2 ml-4">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-sm"
+                              disabled={!quantities[item.id]}
+                            >
+                              −
+                            </button>
+                            <span className="w-6 text-center text-sm font-medium">
+                              {quantities[item.id] || 0}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-6 h-6 bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center justify-center text-sm"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {layoutModel === 'carousel' && (
+                    <div className="flex gap-4 overflow-x-auto pb-2">
+                      {menuItems.map(item => (
+                        <div key={item.id} className="flex-shrink-0 w-64 bg-gray-50 rounded-lg p-4">
+                          <h3 className="text-gray-900 font-medium mb-2">{item.name}</h3>
+                          {item.description && (
+                            <p className="text-gray-600 text-sm mb-2 line-clamp-2">{item.description}</p>
+                          )}
+                          {showPrice && item.price !== undefined && (
+                            <p className="text-orange-600 font-bold mb-3">
+                              R$ {item.price.toFixed(2)}
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="flex-1 bg-gray-200 hover:bg-gray-300 rounded py-1 text-sm"
+                              disabled={!quantities[item.id]}
+                            >
+                              −
+                            </button>
+                            <span className="w-8 text-center font-medium">
+                              {quantities[item.id] || 0}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded py-1 text-sm"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {hasItems && (

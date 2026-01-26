@@ -151,9 +151,11 @@ export async function addOrder(order: Omit<Order, 'id' | 'date'>): Promise<Order
   });
 }
 
-export async function updateOrderStatus(orderId: number, status: string): Promise<void> {
-  await fetchAPI(`/api/orders/${orderId}/status`, {
-    method: 'PATCH',
+export type OrderStatus = 'Pendente' | 'Em preparação' | 'Pronto' | 'Entregue' | 'Cancelado';
+
+export async function updateOrderStatus(orderId: number, status: OrderStatus): Promise<Order> {
+  return fetchAPI<Order>(`/api/orders/${orderId}/status`, {
+    method: 'POST',
     body: JSON.stringify({ status }),
   });
 }
@@ -263,15 +265,53 @@ export async function removeItemFromMenu(menuId: number, itemId: number): Promis
 
 // ==================== Configurações ====================
 
-export async function getSettings(): Promise<Settings> {
-  return fetchAPI<Settings>('/api/settings');
+export interface Setting {
+  key: string;
+  value: string;
+  type: 'string' | 'number' | 'boolean';
 }
 
-export async function updateSettings(settings: Partial<Settings>): Promise<void> {
-  await fetchAPI('/api/settings', {
-    method: 'PUT',
-    body: JSON.stringify(settings),
+export async function getSetting(key: string): Promise<Setting> {
+  return fetchAPI<Setting>(`/api/settings/${key}`);
+}
+
+export async function getAllSettings(): Promise<Setting[]> {
+  return fetchAPI<Setting[]>('/api/settings');
+}
+
+export async function updateSetting(key: string, value: string): Promise<Setting> {
+  return fetchAPI<Setting>(`/api/settings/${key}`, {
+    method: 'POST',
+    body: JSON.stringify({ value }),
   });
+}
+
+// Helpers para configurações específicas
+export async function getShowPrice(): Promise<boolean> {
+  try {
+    const setting = await getSetting('show_price');
+    return setting.value === 'true';
+  } catch {
+    return false; // Padrão: preço oculto
+  }
+}
+
+export async function setShowPrice(show: boolean): Promise<void> {
+  await updateSetting('show_price', show ? 'true' : 'false');
+}
+
+export async function getLayoutModel(): Promise<'grid' | 'list' | 'carousel'> {
+  try {
+    const setting = await getSetting('layout_model');
+    const value = setting.value as 'grid' | 'list' | 'carousel';
+    return ['grid', 'list', 'carousel'].includes(value) ? value : 'grid';
+  } catch {
+    return 'grid'; // Padrão: grid
+  }
+}
+
+export async function setLayoutModel(layout: 'grid' | 'list' | 'carousel'): Promise<void> {
+  await updateSetting('layout_model', layout);
 }
 
 // ==================== Inicialização ====================
