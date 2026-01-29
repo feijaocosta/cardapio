@@ -38,7 +38,7 @@ export interface Settings {
 
 // ✅ NOVO: Layout/Tema é agora um layout completo, não apenas cores
 export interface LayoutTheme {
-  id: 'default' | 'modern'; // ID do layout que vai ser usado
+  id: 'default' | 'modern' | 'image-based'; // ID do layout que vai ser usado
   name: string;
   description: string;
 }
@@ -53,6 +53,11 @@ export const AVAILABLE_LAYOUTS: LayoutTheme[] = [
     id: 'modern',
     name: 'Moderno',
     description: 'Dark theme com sidebar do carrinho',
+  },
+  {
+    id: 'image-based',
+    name: 'Instituto Atos',
+    description: 'Design premium e elegante com paleta neutra e dourada',
   },
 ];
 
@@ -285,20 +290,20 @@ export async function setLayoutModel(layout: 'grid' | 'list' | 'carousel'): Prom
 // ==================== Tema/Layout ====================
 
 // ✅ NOVO: Obter o tema/layout que o admin escolheu
-export async function getTheme(): Promise<'default' | 'modern'> {
+export async function getTheme(): Promise<'default' | 'modern' | 'image-based'> {
   try {
     const setting = await getSetting('theme');
     const value = setting.value as string;
     // Validar se o tema existe na lista de layouts disponíveis
     const isValid = AVAILABLE_LAYOUTS.find(t => t.id === value);
-    return isValid ? (value as 'default' | 'modern') : 'default';
+    return isValid ? (value as 'default' | 'modern' | 'image-based') : 'default';
   } catch {
     return 'default'; // Padrão: layout default
   }
 }
 
 // ✅ NOVO: Salvar o tema/layout escolhido
-export async function setTheme(themeId: 'default' | 'modern'): Promise<void> {
+export async function setTheme(themeId: 'default' | 'modern' | 'image-based'): Promise<void> {
   // Validar se o tema existe
   const themeExists = AVAILABLE_LAYOUTS.find(t => t.id === themeId);
   if (!themeExists) {

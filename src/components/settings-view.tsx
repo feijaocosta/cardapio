@@ -11,7 +11,7 @@ type OrderStatusType = 'Pendente' | 'Em preparação' | 'Pronto' | 'Entregue' | 
 export function SettingsView({ onSettingsChange }: SettingsViewProps) {
   const [showPrice, setShowPriceState] = useState(true);
   const [layoutModel, setLayoutModelState] = useState<'grid' | 'list' | 'carousel'>('grid');
-  const [selectedTheme, setSelectedThemeState] = useState<'default' | 'modern'>('default');
+  const [selectedTheme, setSelectedThemeState] = useState<'default' | 'modern' | 'image-based'>('default');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +74,7 @@ export function SettingsView({ onSettingsChange }: SettingsViewProps) {
     }
   };
 
-  const handleThemeChange = async (themeId: 'default' | 'modern') => {
+  const handleThemeChange = async (themeId: 'default' | 'modern' | 'image-based') => {
     try {
       console.log('🎨 Mudando tema/layout para:', themeId);
       setIsSaving(true);
