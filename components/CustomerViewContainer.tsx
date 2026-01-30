@@ -1,54 +1,57 @@
 import { useState, useEffect } from 'react';
-import { getMenuItems, addOrder, getMenus, getShowPrice, getTheme, type MenuItem, type Menu } from '../services/api';
-import { getLayout, type LayoutKey } from './customer-views';
-import { type CustomerViewLayoutProps } from './customer-views/types';
+import { getMenuItemsByMenuId, addOrder, getMenus, getShowPrice, getTheme, type MenuItem, type Menu } from '../services/api';
+import { getLayout, type LayoutKey } from '../src/components/customer-views';
+import { type LayoutProps } from '../src/components/customer-views/types';
 
 interface CustomerViewContainerProps {
   onOrderPlaced?: () => void;
+  menuId: number;
+  onBackToMenus: () => void;
 }
 
-export function CustomerViewContainer({ onOrderPlaced }: CustomerViewContainerProps) {
+export function CustomerViewContainer({ onOrderPlaced, menuId, onBackToMenus }: CustomerViewContainerProps) {
   // Estado de dados
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [menus, setMenus] = useState<Menu[]>([]);
+  const [currentMenu, setCurrentMenu] = useState<Menu | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showPrice, setShowPrice] = useState(true);
   const [layoutKey, setLayoutKey] = useState<LayoutKey>('default');
-
-  const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
 
   // Carregar dados na montagem do componente
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [items, menusList, showPriceConfig, theme] = await Promise.all([
-          getMenuItems(),
+        const [menusList, showPriceConfig, theme] = await Promise.all([
           getMenus(),
           getShowPrice(),
           getTheme(),
         ]);
-        setMenuItems(items);
-        setMenus(menusList);
-        setShowPrice(showPriceConfig);
-        setLayoutKey(theme); // ✅ Usa o tema/layout do banco
-        console.log('🎨 Layout carregado do banco:', theme);
         
-        setError(null);
+        setShowPrice(showPriceConfig);
+        setLayoutKey(theme || 'default');
+        
+        // Carregar cardápio específico
+        const menu = menusList.find(m => m.id === menuId);
+        setCurrentMenu(menu || null);
+        
+        if (menu) {
+          const items = await getMenuItemsByMenuId(menuId);
+          setMenuItems(items);
+          console.log('📋 Cardápio selecionado:', menu.name, 'com', items.length, 'itens');
+        }
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
-        setError('Erro ao carregar cardápio. Tente novamente.');
       } finally {
         setIsLoading(false);
       }
     };
     
     loadData();
-  }, []);
+  }, [menuId]);
 
   // Handlers de negócio
   const handleCustomerNameChange = (name: string) => {
@@ -97,6 +100,7 @@ export function CustomerViewContainer({ onOrderPlaced }: CustomerViewContainerPr
         customerName: customerName.trim(),
         items: orderItems,
         total: calculateTotal(),
+        menuId: menuId,
       });
 
       setCustomerName('');
@@ -113,35 +117,41 @@ export function CustomerViewContainer({ onOrderPlaced }: CustomerViewContainerPr
     }
   };
 
-  const getMenuLogoUrl = (menu: Menu) => {
-    if (menu.logo_filename) {
-      return `${API_BASE_URL}/uploads/${menu.logo_filename}`;
-    }
-    if (menu.logo) {
-      return menu.logo;
-    }
-    return null;
-  };
-
-  // Obter o componente de layout selecionado (default ou modern)
+  // Obter o componente de layout selecionado
   const LayoutComponent = getLayout(layoutKey);
 
   // Props para passar ao layout
-  const layoutProps: CustomerViewLayoutProps = {
+  const layoutProps: LayoutProps = {
+    menus: currentMenu ? [currentMenu] : [],
+    selectedMenu: currentMenu,
     menuItems,
-    menus,
     customerName,
     quantities,
     showSuccess,
-    isLoading,
-    error,
     showPrice,
-    onCustomerNameChange: handleCustomerNameChange,
+    onSelectMenu: () => {},
+    onBackToMenus: onBackToMenus, // ✅ Passa a função de volta corretamente
+    onCustomerNameChange: (name: string) => setCustomerName(name),
     onQuantityChange: handleQuantityChange,
     onSubmitOrder: handleSubmitOrder,
     calculateTotal,
-    getMenuLogoUrl,
   };
 
-  return <LayoutComponent {...layoutProps} />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Carregando cardápio...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        <LayoutComponent {...layoutProps} />
+      </div>
+    </div>
+  );
 }

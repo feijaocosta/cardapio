@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
-import { getActiveMenus, getMenuItemsByMenuId, addOrder, getShowPrice, getTheme, type MenuItem, type Menu } from '../../services/api';
-import { getLayout, type LayoutKey } from './customer-views';
-import { type LayoutProps } from './customer-views/types';
+import { useNavigate } from 'react-router-dom';
+import { getMenuItems, addOrder, getMenus, getShowPrice, getTheme, type MenuItem, type Menu } from '../services/api';
+import { getLayout, type LayoutKey } from '../src/components/customer-views';
+import { type LayoutProps } from '../src/components/customer-views/types';
 
 interface CustomerViewProps {
   onOrderPlaced?: () => void;
 }
 
 export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
-  const [menus, setMenus] = useState<Menu[]>([]);
-  const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
+  const navigate = useNavigate();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menus, setMenus] = useState<Menu[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
@@ -18,59 +19,36 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const [showPrice, setShowPrice] = useState(true);
   const [layoutKey, setLayoutKey] = useState<LayoutKey>('default');
 
-  // Carregar dados iniciais (menus, showPrice, theme)
   useEffect(() => {
-    async function loadData() {
+    const loadData = async () => {
       try {
-        const [loadedMenus, showPriceConfig, theme] = await Promise.all([
-          getActiveMenus(),
+        setIsLoading(true);
+        const [items, menusList, showPriceConfig, theme] = await Promise.all([
+          getMenuItems(),
+          getMenus(),
           getShowPrice(),
           getTheme(),
         ]);
-        setMenus(loadedMenus);
+        setMenuItems(items);
+        setMenus(menusList);
         setShowPrice(showPriceConfig);
-        setLayoutKey(theme);
-        console.log('🎨 Layout carregado do banco:', theme);
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
+        setLayoutKey(theme || 'default');
+        console.log('🎨 Layout de listagem carregado:', theme);
+      } catch (err) {
+        console.error('Erro ao carregar dados:', err);
       } finally {
         setIsLoading(false);
       }
-    }
+    };
+    
     loadData();
   }, []);
 
-  // Carregar itens do cardápio selecionado
-  useEffect(() => {
-    async function loadMenuItems() {
-      if (selectedMenu) {
-        try {
-          const items = await getMenuItemsByMenuId(selectedMenu.id);
-          setMenuItems(items);
-        } catch (error) {
-          console.error('Erro ao carregar itens do cardápio:', error);
-        }
-      }
-    }
-    loadMenuItems();
-  }, [selectedMenu]);
-
-  // Handlers
-  const handleSelectMenu = (menu: Menu) => {
-    setSelectedMenu(menu);
+  const handleSelectMenu = (menuId: number) => {
+    navigate(`/menu/${menuId}`);
   };
 
-  const handleBackToMenus = () => {
-    setSelectedMenu(null);
-    setQuantities({});
-    setCustomerName('');
-  };
-
-  const handleCustomerNameChange = (name: string) => {
-    setCustomerName(name);
-  };
-
-  const handleQuantityChange = (itemId: number, change: number) => {
+  const updateQuantity = (itemId: number, change: number) => {
     setQuantities(prev => {
       const current = prev[itemId] || 0;
       const newValue = Math.max(0, current + change);
@@ -81,7 +59,8 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   const calculateTotal = () => {
     return menuItems.reduce((total, item) => {
       const quantity = quantities[item.id] || 0;
-      return total + ((item.price || 0) * quantity);
+      const price = item.price || 0;
+      return total + (price * quantity);
     }, 0);
   };
 
@@ -111,7 +90,6 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
         customerName: customerName.trim(),
         items: orderItems,
         total: calculateTotal(),
-        menuId: selectedMenu?.id,
       });
 
       setCustomerName('');
@@ -122,25 +100,11 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
       if (onOrderPlaced) {
         onOrderPlaced();
       }
-    } catch (error) {
-      console.error('Erro ao criar pedido:', error);
-      alert('Erro ao criar pedido. Por favor, tente novamente.');
+    } catch (err) {
+      console.error('Erro ao fazer pedido:', err);
+      alert('Erro ao fazer pedido. Tente novamente.');
     }
   };
-
-  // Loading screen
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando cardápios...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Obter o componente de layout selecionado
   const LayoutComponent = getLayout(layoutKey);
@@ -148,20 +112,35 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   // Props para passar ao layout
   const layoutProps: LayoutProps = {
     menus,
-    selectedMenu,
+    selectedMenu: null,
     menuItems,
     customerName,
     quantities,
     showSuccess,
     showPrice,
     onSelectMenu: handleSelectMenu,
-    onBackToMenus: handleBackToMenus,
-    onCustomerNameChange: handleCustomerNameChange,
-    onQuantityChange: handleQuantityChange,
+    onBackToMenus: () => {},
+    onCustomerNameChange: (name: string) => setCustomerName(name),
+    onQuantityChange: updateQuantity,
     onSubmitOrder: handleSubmitOrder,
     calculateTotal,
   };
 
-  // Renderizar o layout escolhido
-  return <LayoutComponent {...layoutProps} />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Carregando cardápio...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        <LayoutComponent {...layoutProps} />
+      </div>
+    </div>
+  );
 }
