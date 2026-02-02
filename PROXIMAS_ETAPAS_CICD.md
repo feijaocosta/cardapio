@@ -103,16 +103,18 @@ Repita o processo anterior, mas com pattern: `staging`
 ```bash
 ssh seu_usuario@seu_dominio.com
 
-mkdir -p ~/cardapio-staging
-mkdir -p ~/cardapio-prod
-mkdir -p ~/logs
-touch ~/logs/app-staging.log
-touch ~/logs/app-prod.log
+# Os diretórios já existem no DreamHost:
+ls -la /home/cardapioprod/
+
+# Você vai trabalhar nestes diretórios:
+# - /home/cardapioprod/cardapio-staging.feijaocosta.com.br  (staging)
+# - /home/cardapioprod/cardapio.feijaocosta.com.br          (produção)
+# - /home/cardapioprod/logs                                 (logs)
 ```
 
 #### Tarefa 3.2: Clonar Repositório (Staging)
 ```bash
-cd ~/cardapio-staging
+cd /home/cardapioprod/cardapio-staging.feijaocosta.com.br
 git clone https://github.com/feijaocosta/cardapio.git .
 git checkout staging
 git pull origin staging
@@ -120,7 +122,7 @@ git pull origin staging
 
 #### Tarefa 3.3: Clonar Repositório (Produção)
 ```bash
-cd ~/cardapio-prod
+cd /home/cardapioprod/cardapio.feijaocosta.com.br
 git clone https://github.com/feijaocosta/cardapio.git .
 git checkout main
 git pull origin main
@@ -128,7 +130,7 @@ git pull origin main
 
 #### Tarefa 3.4: Instalar Dependências (Staging)
 ```bash
-cd ~/cardapio-staging
+cd /home/cardapioprod/cardapio-staging.feijaocosta.com.br
 npm install
 cd server && npm install && cd ..
 npm run build
@@ -136,7 +138,7 @@ npm run build
 
 #### Tarefa 3.5: Instalar Dependências (Produção)
 ```bash
-cd ~/cardapio-prod
+cd /home/cardapioprod/cardapio.feijaocosta.com.br
 npm install
 cd server && npm install && cd ..
 npm run build
@@ -144,20 +146,20 @@ npm run build
 
 #### Tarefa 3.6: Configurar Variáveis de Ambiente
 
-**Em `~/cardapio-staging/.env`:**
+**Em `/home/cardapioprod/cardapio-staging.feijaocosta.com.br/.env`:**
 ```env
 NODE_ENV=staging
 PORT=3001
 DATABASE_PATH=./cardapio-staging.db
-REACT_APP_API_URL=http://staging.cardapio/api
+REACT_APP_API_URL=http://cardapio-staging.feijaocosta.com.br/api
 ```
 
-**Em `~/cardapio-prod/.env`:**
+**Em `/home/cardapioprod/cardapio.feijaocosta.com.br/.env`:**
 ```env
 NODE_ENV=production
 PORT=3000
 DATABASE_PATH=./cardapio-prod.db
-REACT_APP_API_URL=https://cardapio.com/api
+REACT_APP_API_URL=https://cardapio.feijaocosta.com.br/api
 ```
 
 ---
@@ -165,13 +167,17 @@ REACT_APP_API_URL=https://cardapio.com/api
 ## 📋 Checklist do que falta fazer
 
 ### Configuração SSH
-- [ ] SSH key gerada no DreamHost
-- [ ] Deploy key adicionada ao GitHub
-- [ ] Secrets adicionados ao GitHub (4 secrets)
+- [x] SSH key gerada no DreamHost
+- [x] Deploy key adicionada ao GitHub
+- [x] Secrets adicionados ao GitHub (4 secrets) ✅ COMPLETO:
+  - [x] DREAMHOST_HOST
+  - [x] DREAMHOST_USER
+  - [x] DREAMHOST_SSH_KEY
+  - [x] DREAMHOST_KNOWN_HOSTS
 
 ### Proteger Branches
-- [ ] Branch `main` protegida
-- [ ] Branch `staging` protegida
+- [x] Branch `main` protegida ✅ COMPLETO
+- [x] Branch `staging` protegida ✅ COMPLETO
 
 ### Setup DreamHost
 - [ ] Diretórios criados
@@ -210,9 +216,9 @@ REACT_APP_API_URL=https://cardapio.com/api
    ✅ Criar workflows
    ✅ Fazer commit
 
-⏳ FASE 2 (SSH):
-   ⏳ Gerar chaves no DreamHost
-   ⏳ Adicionar secrets ao GitHub
+✅ FASE 2 (SSH):
+   ✅ Gerar chaves no DreamHost
+   ✅ Adicionar secrets ao GitHub
 
 ⏳ FASE 3 (DreamHost):
    ⏳ Criar diretórios

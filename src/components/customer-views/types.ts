@@ -1,4 +1,4 @@
-import { type MenuItem, type Menu } from '../../services/api';
+import { type MenuItem, type Menu } from '../../../services/api';
 
 export interface LayoutProps {
   menus: Menu[];

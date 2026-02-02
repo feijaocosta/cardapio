@@ -24,8 +24,6 @@ import {
   User, 
   Package, 
   BookOpen,
-  Image as ImageIcon,
-  Palette,
   Eye,
   EyeOff,
   Edit
@@ -40,7 +38,6 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [activeTab, setActiveTab] = useState<'orders' | 'items' | 'menus'>('orders');
-  const [isLoading, setIsLoading] = useState(true);
   
   // New item form
   const [newItemName, setNewItemName] = useState('');
@@ -68,7 +65,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   };
 
   useEffect(() => {
-    loadData().then(() => setIsLoading(false));
+    loadData();
   }, [refreshTrigger]);
 
   const handleAddItem = async (e: React.FormEvent) => {
@@ -148,7 +145,7 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
 
   const handleToggleMenuActive = async (menu: Menu) => {
     try {
-      await updateMenu(menu.id, { active: !menu.active });
+      await updateMenu(menu.id, menu.name, menu.description, !menu.active, null);
       await loadData();
     } catch (error) {
       console.error('Erro ao atualizar cardápio:', error);

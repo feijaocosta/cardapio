@@ -1,10 +1,8 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { CustomerView } from '../../components/customer-view';
-import { CustomerViewContainer } from '../../components/CustomerViewContainer';
+import { useParams } from 'react-router-dom';
+import { CustomerView } from '../components/customer-view';
 
 export default function CustomerViewPage() {
   const { menuId } = useParams();
-  const navigate = useNavigate();
 
   console.log('🔍 CustomerViewPage - menuId:', menuId); // Debug
 
@@ -15,14 +13,7 @@ export default function CustomerViewPage() {
     return <CustomerView key="customer-view-list" />;
   }
 
-  // Se houver menuId, mostrar cardápio específico
+  // Se houver menuId, passar para o CustomerView filtrar
   console.log('🍽️ Renderizando cardápio específico:', menuId);
-  return (
-    <CustomerViewContainer 
-      key={`menu-${menuId}`}
-      onOrderPlaced={() => {}} 
-      menuId={parseInt(menuId)}
-      onBackToMenus={() => navigate('/')}
-    />
-  );
+  return <CustomerView key={`menu-${menuId}`} selectedMenuId={parseInt(menuId)} />;
 }

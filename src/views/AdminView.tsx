@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
-import { AdminView as AdminViewComponent } from '../../components/admin-view';
-import { SettingsView } from '../../components/settings-view';
+import { AdminView as AdminViewComponent } from '../components/admin-view';
+import { SettingsView } from '../components/settings-view';
 import { useState } from 'react';
 
 export default function AdminView() {

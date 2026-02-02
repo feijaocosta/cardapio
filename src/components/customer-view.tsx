@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMenuItems, addOrder, getMenus, getShowPrice, getTheme, type MenuItem, type Menu } from '../services/api';
-import { getLayout, type LayoutKey } from '../src/components/customer-views';
-import { type LayoutProps } from '../src/components/customer-views/types';
+import { getMenuItems, getMenuItemsByMenuId, addOrder, getMenus, getShowPrice, getTheme, type MenuItem, type Menu } from '../../services/api';
+import { getLayout, type LayoutKey } from './customer-views';
+import { type LayoutProps } from './customer-views/types';
 
 interface CustomerViewProps {
   onOrderPlaced?: () => void;
+  selectedMenuId?: number;
 }
 
-export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
+export function CustomerView({ onOrderPlaced, selectedMenuId }: CustomerViewProps) {
   const navigate = useNavigate();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
+  const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
@@ -23,17 +25,36 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [items, menusList, showPriceConfig, theme] = await Promise.all([
+        const [allItems, menusList, showPriceConfig, theme] = await Promise.all([
           getMenuItems(),
           getMenus(),
           getShowPrice(),
           getTheme(),
         ]);
-        setMenuItems(items);
+        
         setMenus(menusList);
         setShowPrice(showPriceConfig);
         setLayoutKey(theme || 'default');
-        console.log('🎨 Layout de listagem carregado:', theme);
+
+        // Se há um menuId selecionado, carregar apenas os itens daquele menu
+        if (selectedMenuId) {
+          console.log('📌 Carregando itens do menu:', selectedMenuId);
+          const menu = menusList.find(m => m.id === selectedMenuId);
+          if (menu) {
+            setSelectedMenu(menu);
+            const menuSpecificItems = await getMenuItemsByMenuId(selectedMenuId);
+            setMenuItems(menuSpecificItems);
+            console.log('✅ Itens carregados:', menuSpecificItems);
+          } else {
+            console.error('❌ Menu não encontrado:', selectedMenuId);
+            setMenuItems([]);
+          }
+        } else {
+          // Caso contrário, mostrar todos os itens (tela de listagem)
+          console.log('📋 Carregando todos os itens');
+          setMenuItems(allItems);
+          setSelectedMenu(null);
+        }
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
       } finally {
@@ -42,10 +63,14 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
     };
     
     loadData();
-  }, []);
+  }, [selectedMenuId]);
 
-  const handleSelectMenu = (menuId: number) => {
-    navigate(`/menu/${menuId}`);
+  const handleSelectMenu = (menu: Menu) => {
+    navigate(`/menu/${menu.id}`);
+  };
+
+  const handleBackToMenus = () => {
+    navigate('/');
   };
 
   const updateQuantity = (itemId: number, change: number) => {
@@ -112,14 +137,14 @@ export function CustomerView({ onOrderPlaced }: CustomerViewProps) {
   // Props para passar ao layout
   const layoutProps: LayoutProps = {
     menus,
-    selectedMenu: null,
+    selectedMenu,
     menuItems,
     customerName,
     quantities,
     showSuccess,
     showPrice,
     onSelectMenu: handleSelectMenu,
-    onBackToMenus: () => {},
+    onBackToMenus: handleBackToMenus,
     onCustomerNameChange: (name: string) => setCustomerName(name),
     onQuantityChange: updateQuantity,
     onSubmitOrder: handleSubmitOrder,
