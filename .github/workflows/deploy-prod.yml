@@ -1,0 +1,31 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Deploy to DreamHost Production
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DREAMHOST_HOST }}
+        username: ${{ secrets.DREAMHOST_USER }}
+        key: ${{ secrets.DREAMHOST_SSH_KEY }}
+        known_hosts: ${{ secrets.DREAMHOST_KNOWN_HOSTS }}
+        script: |
+          cd ~/cardapio-prod
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          npm install
+          cd server && npm install && cd ..
+          npm run build
+          pkill -f "node server" || true
+          npm run dev > ~/logs/app-prod.log 2>&1 &
+          echo "Deploy production completed"
