@@ -17,9 +17,8 @@ jobs:
         host: ${{ secrets.DREAMHOST_HOST }}
         username: ${{ secrets.DREAMHOST_USER }}
         key: ${{ secrets.DREAMHOST_SSH_KEY }}
-        known_hosts: ${{ secrets.DREAMHOST_KNOWN_HOSTS }}
         script: |
-          cd ~/cardapio-staging
+          cd /home/cardapioprod/cardapio-staging.feijaocosta.com.br
           git fetch origin staging
           git checkout staging
           git pull origin staging
@@ -27,5 +26,5 @@ jobs:
           cd server && npm install && cd ..
           npm run build
           pkill -f "node server" || true
-          npm run dev > ~/logs/app-staging.log 2>&1 &
+          npm run dev > /home/cardapioprod/logs/app-staging.log 2>&1 &
           echo "Deploy staging completed"
