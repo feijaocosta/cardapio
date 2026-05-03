@@ -1,30 +1,74 @@
-name: Deploy to Production
+name: Deploy to Production (GCP)
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Deploy to DreamHost Production
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.DREAMHOST_HOST }}
-        username: ${{ secrets.DREAMHOST_USER }}
-        key: ${{ secrets.DREAMHOST_SSH_KEY }}
-        script: |
-          cd /home/cardapioprod/cardapio.feijaocosta.com.br
-          git fetch origin main
-          git checkout main
-          git pull origin main
-          npm install
-          cd server && npm install && cd ..
-          npm run build
-          pkill -f "node server" || true
-          npm run dev > /home/cardapioprod/logs/app-prod.log 2>&1 &
-          echo "Deploy production completed"
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Deploy production via SSH
+        uses: google-github-actions/ssh-compute@v1
+        with:
+          instance_name: cardapio-app
+          zone: us-central1-a
+          project_id: kingdom-app-5a8b4
+          user: feijao
+          ssh_private_key: ${{ secrets.GCP_VM_SSH_PRIVATE_KEY }}
+          command: |
+            set -euo pipefail
+
+            APP_ROOT="$HOME/cardapio-app"
+            APP_DIR="$APP_ROOT/production"
+            BRANCH="main"
+            PROCESS_NAME="production"
+            PORT="3002"
+            DB_PATH="../cardapio-prod.db"
+            REPO_SSH="git@github.com:${{ github.repository }}.git"
+
+            mkdir -p "$APP_ROOT"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "Clonando repositório em $APP_DIR"
+              git clone "$REPO_SSH" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            npm ci
+            npm --prefix server ci
+            npm run build
+
+            cat > server/.env <<EOF
+            NODE_ENV=production
+            PORT=$PORT
+            DATABASE_PATH=$DB_PATH
+            EOF
+
+            if pm2 describe "$PROCESS_NAME" >/dev/null 2>&1; then
+              pm2 restart "$PROCESS_NAME" --update-env
+            else
+              pm2 start npm --name "$PROCESS_NAME" --cwd "$APP_DIR/server" -- run dev
+            fi
+
+            pm2 save
+            pm2 status "$PROCESS_NAME"
+            curl -fsS "http://127.0.0.1:$PORT/health"
