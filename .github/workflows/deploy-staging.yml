@@ -195,7 +195,7 @@ jobs:
             pm2 save
             pm2 status "$PROCESS_NAME"
 
-            HEALTH_URL="http://127.0.0.1:$PORT/health"
+            HEALTH_URL="http://127.0.0.1:$PORT/"
             for i in $(seq 1 30); do
               if curl -fsS "$HEALTH_URL" >/dev/null; then
                 echo "Healthcheck OK em $HEALTH_URL"
