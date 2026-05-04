@@ -36,7 +36,7 @@ jobs:
         run: npm --prefix server ci --include=dev --no-audit --no-fund
 
       - name: Build backend
-        run: npm --prefix server run build
+        run: npm --prefix server run build:runtime
 
       - name: Pack frontend dist artifact
         run: tar -czf staging-dist.tar.gz dist
