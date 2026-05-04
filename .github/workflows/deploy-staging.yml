@@ -104,6 +104,7 @@ jobs:
           script: |
             set -euo pipefail
             export PATH="$PATH:/usr/local/bin:$HOME/.npm-global/bin"
+            export PATH="$PATH:$(npm config get prefix)/bin"
 
             APP_ROOT="$HOME/cardapio-app"
             APP_DIR="$APP_ROOT/staging"
@@ -113,7 +114,7 @@ jobs:
             DB_PATH="../cardapio-staging.db"
             FRONTEND_DIST_PACKAGE="/tmp/staging-dist.tar.gz"
             BACKEND_DIST_PACKAGE="/tmp/staging-server-dist.tar.gz"
-            REPO_SSH="git@github.com:${{ github.repository }}.git"
+            REPO_HTTPS="https://github.com/${{ github.repository }}.git"
 
             mkdir -p "$APP_ROOT"
 
@@ -131,7 +132,7 @@ jobs:
 
             if [ ! -d "$APP_DIR/.git" ]; then
               echo "Clonando backend/repo em $APP_DIR"
-              git clone "$REPO_SSH" "$APP_DIR"
+              git clone "$REPO_HTTPS" "$APP_DIR"
             fi
 
             cd "$APP_DIR"
