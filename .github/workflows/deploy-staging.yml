@@ -17,20 +17,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Auth to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
       - name: Deploy staging via SSH
-        uses: google-github-actions/ssh-compute@v1
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          instance_name: cardapio-app
-          zone: us-central1-a
-          project_id: kingdom-app-5a8b4
-          user: feijao
-          ssh_private_key: ${{ secrets.GCP_VM_SSH_PRIVATE_KEY }}
-          command: |
+          host: ${{ secrets.GCP_VM_IP }}
+          username: feijao
+          key: ${{ secrets.GCP_VM_SSH_PRIVATE_KEY }}
+          port: 22
+          script_stop: true
+          script: |
             set -euo pipefail
 
             APP_ROOT="$HOME/cardapio-app"
