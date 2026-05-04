@@ -28,6 +28,8 @@ jobs:
           script: |
             set -euo pipefail
 
+            export PATH="$PATH:/usr/local/bin:$HOME/.npm-global/bin"
+
             APP_ROOT="$HOME/cardapio-app"
             APP_DIR="$APP_ROOT/production"
             BRANCH="main"
@@ -47,10 +49,15 @@ jobs:
             git fetch origin "$BRANCH"
             git checkout "$BRANCH"
             git reset --hard "origin/$BRANCH"
+            git clean -fd
 
-            npm ci
-            npm --prefix server ci
+            npm ci --include=dev
+            npm --prefix server ci --include=dev
             npm run build
+
+            if ! command -v pm2 >/dev/null 2>&1; then
+              npm install -g pm2
+            fi
 
             cat > server/.env <<EOF
             NODE_ENV=production
@@ -65,5 +72,18 @@ jobs:
             fi
 
             pm2 save
+            sleep 5  # Dê 5 segundos para o servidor respirar e subir
             pm2 status "$PROCESS_NAME"
-            curl -fsS "http://127.0.0.1:$PORT/health"
+
+            HEALTH_URL="http://127.0.0.1:$PORT/health"
+            for i in $(seq 1 30); do
+              if curl -fsS "$HEALTH_URL" >/dev/null; then
+                echo "Healthcheck OK em $HEALTH_URL"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "Healthcheck falhou para $HEALTH_URL"
+            pm2 logs "$PROCESS_NAME" --lines 120 --nostream || true
+            exit 1
