@@ -1,5 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { Container } from './container/Container';
 import { createMenuRoutes } from './infrastructure/http/routes/MenuRoutes';
 import { createItemRoutes } from './infrastructure/http/routes/ItemRoutes';
@@ -25,6 +27,16 @@ export function createApp(container: Container): Express {
   app.use('/api/items', createItemRoutes(container));
   app.use('/api/orders', createOrderRoutes(container));
   app.use('/api/settings', createSettingRoutes(container));
+
+  // Middleware de erro (deve ser o último)
+  // Serve frontend estático (dist relativo ao executável compilado)
+  const distPath = path.resolve(__dirname, '../../dist');
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (_req: Request, res: Response) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
   // Middleware de erro (deve ser o último)
   app.use(errorHandler);
