@@ -102,7 +102,7 @@ jobs:
           port: 22
           script_stop: true
           script: |
-            set -euxo pipefail
+            set -euo pipefail
             export PATH="$PATH:/usr/local/bin:$HOME/.npm-global/bin"
             export PATH="$PATH:$(npm config get prefix)/bin"
 
@@ -141,7 +141,6 @@ jobs:
             git reset --hard "origin/$BRANCH"
 
             npm --prefix server ci --omit=dev --no-audit --no-fund
-            echo "npm ci concluído com sucesso (exit $?)"
 
             if ! command -v pm2 >/dev/null 2>&1; then
               npm install -g pm2
@@ -187,7 +186,10 @@ jobs:
             rm -rf "$APP_DIR/dist.new"
             rm -f "$FRONTEND_DIST_PACKAGE"
 
-            if pm2 describe "$PROCESS_NAME" >/dev/null 2>&1; then
+            PM2_EXISTS=0
+            pm2 describe "$PROCESS_NAME" >/dev/null 2>&1 && PM2_EXISTS=1 || true
+
+            if [ "$PM2_EXISTS" -eq 1 ]; then
               pm2 restart "$PROCESS_NAME" --update-env
             else
               pm2 start npm --name "$PROCESS_NAME" --cwd "$APP_DIR/server" -- run start
