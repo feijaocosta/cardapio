@@ -100,7 +100,6 @@ jobs:
           username: feijao
           key: ${{ secrets.GCP_VM_SSH_PRIVATE_KEY }}
           port: 22
-          script_stop: true
           script: |
             set -euo pipefail
             export PATH="$PATH:/usr/local/bin:$HOME/.npm-global/bin"
