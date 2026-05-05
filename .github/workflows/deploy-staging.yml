@@ -102,7 +102,7 @@ jobs:
           port: 22
           script_stop: true
           script: |
-            set -euo pipefail
+            set -euxo pipefail
             export PATH="$PATH:/usr/local/bin:$HOME/.npm-global/bin"
             export PATH="$PATH:$(npm config get prefix)/bin"
 
