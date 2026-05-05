@@ -18,9 +18,11 @@ export function createApp(container: Container): Express {
   app.use(express.urlencoded({ extended: true }));
 
   // Health check
-  app.get('/health', (req: Request, res: Response) => {
+  const healthHandler = (_req: Request, res: Response) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
-  });
+  };
+  app.get('/health', healthHandler);
+  app.get('/api/health', healthHandler);
 
   // Rotas
   app.use('/api/menus', createMenuRoutes(container));
@@ -28,12 +30,12 @@ export function createApp(container: Container): Express {
   app.use('/api/orders', createOrderRoutes(container));
   app.use('/api/settings', createSettingRoutes(container));
 
-  // Middleware de erro (deve ser o último)
   // Serve frontend estático (dist relativo ao executável compilado)
   const distPath = path.resolve(__dirname, '../../dist');
   if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
-    app.get('*', (_req: Request, res: Response) => {
+    // Express 5 não aceita '*' como path string; usa RegExp para SPA fallback.
+    app.get(/.*/, (_req: Request, res: Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
