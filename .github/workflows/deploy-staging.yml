@@ -32,8 +32,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         env:
-          VITE_API_URL: /staging/api
-          VITE_BASE_PATH: /staging/
+          VITE_API_URL: /api
+          VITE_BASE_PATH: /
           VITE_DEBUG_BUILD: '1'
 
       - name: Install backend dependencies for build
