@@ -1,5 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { Container } from './container/Container';
 import { createMenuRoutes } from './infrastructure/http/routes/MenuRoutes';
 import { createItemRoutes } from './infrastructure/http/routes/ItemRoutes';
@@ -16,15 +18,27 @@ export function createApp(container: Container): Express {
   app.use(express.urlencoded({ extended: true }));
 
   // Health check
-  app.get('/health', (req: Request, res: Response) => {
+  const healthHandler = (_req: Request, res: Response) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
-  });
+  };
+  app.get('/health', healthHandler);
+  app.get('/api/health', healthHandler);
 
   // Rotas
   app.use('/api/menus', createMenuRoutes(container));
   app.use('/api/items', createItemRoutes(container));
   app.use('/api/orders', createOrderRoutes(container));
   app.use('/api/settings', createSettingRoutes(container));
+
+  // Serve frontend estático (dist relativo ao executável compilado)
+  const distPath = path.resolve(__dirname, '../../dist');
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    // Express 5 não aceita '*' como path string; usa RegExp para SPA fallback.
+    app.get(/.*/, (_req: Request, res: Response) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
   // Middleware de erro (deve ser o último)
   app.use(errorHandler);

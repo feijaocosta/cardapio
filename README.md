@@ -91,13 +91,20 @@ Documentação consolidada e organizada para o Sistema de Pedidos com Backend (E
 - **Instruções para IAs** (para que sigam o workflow)
 - ⏱️ Tempo: **15 minutos**
 
-### 🔟 **[PLANO_CICD_DREAMHOST.md](PLANO_CICD_DREAMHOST.md)**
-- Plano detalhado de implementação: CI/CD + DreamHost
-- 6 fases de setup (repositório, SSH, servidores, workflows, testes)
-- GitHub Actions workflows (YAML)
-- Deploy automático em staging e produção
-- Troubleshooting e rollback
+### 🔟 **[PLANO_CICD_DREAMHOST.md](PLANO_CICD_DREAMHOST.md)** ⚠️ DESCONTINUADO
+- ~~Plano para DreamHost~~ 
+- **⚠️ MIGRADO PARA GCP** (veja abaixo)
 - ⏱️ Tempo: **2-3 horas de implementação**
+
+### 1️⃣1️⃣ **[PLANO_CICD_GCP.md](PLANO_CICD_GCP.md)** ✅ NOVO
+- Plano detalhado para GCP Free Tier
+- 6 fases de setup (GCP → VM → Deploy → Nginx → GitHub Actions → Monitoramento)
+- Staging + Produção na MESMA VM (free tier)
+- GitHub Actions workflows automático
+- Deploy automático com PM2
+- Troubleshooting e manutenção
+- ⏱️ Tempo: **3.5-4 horas de implementação**
+- **STATUS**: FASE 1 ✅ COMPLETA (VM criada, IP: 34.42.94.96)
 
 ---
 
@@ -137,7 +144,7 @@ npm install && npm run dev
 ### 🚀 Se você quer fazer deploy:
 ```
 1. WORKFLOW_DESENVOLVIMENTO.md (15 min)
-2. PLANO_CICD_DREAMHOST.md (2-3 horas)
+2. PLANO_CICD_GCP.md (3.5-4 horas)
 3. Implementar cada fase sequencialmente
 4. Fazer primeiro deploy
 5. Monitorar produção
@@ -162,7 +169,7 @@ START
   │        │
   │        ├─→ Quer Publicar?
   │        │   └─→ [WORKFLOW_DESENVOLVIMENTO.md]
-  │        │       └─→ [PLANO_CICD_DREAMHOST.md]
+  │        │       └─→ [PLANO_CICD_GCP.md]
   │        │
   │        └─→ Arquiteto/Lead?
   │            └─→ [ARQUITETURA_BACKEND.md]
@@ -197,7 +204,7 @@ START
 → **[API_ENDPOINTS.md](API_ENDPOINTS.md)**
 
 ### "Quero publicar em produção"
-→ **[WORKFLOW_DESENVOLVIMENTO.md](WORKFLOW_DESENVOLVIMENTO.md)** → **[PLANO_CICD_DREAMHOST.md](PLANO_CICD_DREAMHOST.md)**
+→ **[WORKFLOW_DESENVOLVIMENTO.md](WORKFLOW_DESENVOLVIMENTO.md)** → **[PLANO_CICD_GCP.md](PLANO_CICD_GCP.md)**
 
 ### "Tenho um problema/erro"
 → Procure por "troubleshooting" em cada arquivo
@@ -271,10 +278,19 @@ Documentação/
 │   └── Troubleshooting
 │
 ├── 10. PLANO_CICD_DREAMHOST.md
+│   ├── ~~6 Fases de Implementação~~
+│   ├── ~~Setup Repositório~~
+│   ├── ~~Configurar SSH~~
+│   ├── ~~Setup DreamHost~~
+│   ├── ~~GitHub Actions Workflows~~
+│   ├── ~~Testes End-to-End~~
+│   └── ~~Monitoramento~~
+│
+├── 11. PLANO_CICD_GCP.md
 │   ├── 6 Fases de Implementação
 │   ├── Setup Repositório
 │   ├── Configurar SSH
-│   ├── Setup DreamHost
+│   ├── Setup GCP
 │   ├── GitHub Actions Workflows
 │   ├── Testes End-to-End
 │   └── Monitoramento
@@ -331,10 +347,10 @@ Documentação/
 🔄 Contém: Branches, commits, PRs, workflow  
 ⏱️ Leitura: 15 minutos  
 
-### [PLANO_CICD_DREAMHOST.md](PLANO_CICD_DREAMHOST.md)
+### [PLANO_CICD_GCP.md](PLANO_CICD_GCP.md)
 ✅ Melhor para: Publicar em produção  
 🚀 Contém: Setup, workflows, deployment  
-⏱️ Leitura + Implementação: 2-3 horas  
+⏱️ Leitura + Implementação: 3.5-4 horas  
 
 ---
 
@@ -366,7 +382,7 @@ Documentação/
 4. [BANCO_DADOS.md](BANCO_DADOS.md)
 5. [API_ENDPOINTS.md](API_ENDPOINTS.md)
 6. [WORKFLOW_DESENVOLVIMENTO.md](WORKFLOW_DESENVOLVIMENTO.md)
-7. [PLANO_CICD_DREAMHOST.md](PLANO_CICD_DREAMHOST.md)
+7. [PLANO_CICD_GCP.md](PLANO_CICD_GCP.md)
 
 ### Para Frontend Developer
 1. [PROJETO_SINTESE.md](PROJETO_SINTESE.md)
@@ -388,7 +404,7 @@ Documentação/
 
 ### Para Publicação em Produção
 1. [WORKFLOW_DESENVOLVIMENTO.md](WORKFLOW_DESENVOLVIMENTO.md)
-2. [PLANO_CICD_DREAMHOST.md](PLANO_CICD_DREAMHOST.md)
+2. [PLANO_CICD_GCP.md](PLANO_CICD_GCP.md)
 
 ---
 
@@ -405,7 +421,7 @@ Documentação/
 | [API_ENDPOINTS.md](API_ENDPOINTS.md) | API | 10 min |
 | [GUIA_NOVOS_LAYOUTS.md](GUIA_NOVOS_LAYOUTS.md) | Layouts | 15 min |
 | [WORKFLOW_DESENVOLVIMENTO.md](WORKFLOW_DESENVOLVIMENTO.md) | Workflow | 15 min |
-| [PLANO_CICD_DREAMHOST.md](PLANO_CICD_DREAMHOST.md) | Deploy | 2-3h |
+| [PLANO_CICD_GCP.md](PLANO_CICD_GCP.md) | Deploy | 3.5-4h |
 
 ---
 
@@ -421,7 +437,7 @@ Pule a seção de código detalhado se preferir conceitos gerais
 Leia [SETUP_AMBIENTE.md](SETUP_AMBIENTE.md) e comece a rodar o projeto
 
 ### Quer publicar rapidinho?
-Leia [WORKFLOW_DESENVOLVIMENTO.md](WORKFLOW_DESENVOLVIMENTO.md) e [PLANO_CICD_DREAMHOST.md](PLANO_CICD_DREAMHOST.md)
+Leia [WORKFLOW_DESENVOLVIMENTO.md](WORKFLOW_DESENVOLVIMENTO.md) e [PLANO_CICD_GCP.md](PLANO_CICD_GCP.md)
 
 ---
 

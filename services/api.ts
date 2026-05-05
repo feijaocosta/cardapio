@@ -64,12 +64,24 @@ export const AVAILABLE_LAYOUTS: LayoutTheme[] = [
 // Configuração da URL base da API
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
 
+function buildApiUrl(endpoint: string): string {
+  const normalizedBase = API_BASE_URL.replace(/\/$/, '');
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  // Evita URLs como /api/api/... quando base já termina com /api
+  if (normalizedBase.endsWith('/api') && normalizedEndpoint.startsWith('/api/')) {
+    return `${normalizedBase}${normalizedEndpoint.slice(4)}`;
+  }
+
+  return `${normalizedBase}${normalizedEndpoint}`;
+}
+
 // Helper para fazer requisições
 async function fetchAPI<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(buildApiUrl(endpoint), {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -166,7 +178,7 @@ export async function addMenuWithLogo(
     formData.append('logo', logoFile);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/menus`, {
+  const response = await fetch(buildApiUrl('/api/menus'), {
     method: 'POST',
     body: formData,
   });
@@ -200,7 +212,7 @@ export async function updateMenu(
     formData.append('logo', logoFile);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/menus/${id}`, {
+  const response = await fetch(buildApiUrl(`/api/menus/${id}`), {
     method: 'PUT',
     body: formData,
   });

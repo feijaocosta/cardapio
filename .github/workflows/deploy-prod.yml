@@ -1,30 +1,214 @@
-name: Deploy to Production
+name: Deploy to Production (GCP)
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      frontend_artifact_name: ${{ steps.meta.outputs.frontend_artifact_name }}
+      backend_artifact_name: ${{ steps.meta.outputs.backend_artifact_name }}
 
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Deploy to DreamHost Production
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.DREAMHOST_HOST }}
-        username: ${{ secrets.DREAMHOST_USER }}
-        key: ${{ secrets.DREAMHOST_SSH_KEY }}
-        script: |
-          cd /home/cardapioprod/cardapio.feijaocosta.com.br
-          git fetch origin main
-          git checkout main
-          git pull origin main
-          npm install
-          cd server && npm install && cd ..
-          npm run build
-          pkill -f "node server" || true
-          npm run dev > /home/cardapioprod/logs/app-prod.log 2>&1 &
-          echo "Deploy production completed"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_API_URL: /api
+          VITE_BASE_PATH: /
+
+      - name: Install backend dependencies for build
+        run: npm --prefix server ci --include=dev --no-audit --no-fund
+
+      - name: Build backend
+        run: npm --prefix server run build:runtime
+
+      - name: Pack frontend dist artifact
+        run: tar -czf production-dist.tar.gz dist
+
+      - name: Pack backend dist artifact
+        run: tar -czf production-server-dist.tar.gz -C server dist
+
+      - name: Artifact metadata
+        id: meta
+        run: |
+          echo "frontend_artifact_name=production-dist-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "backend_artifact_name=production-server-dist-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload frontend dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.frontend_artifact_name }}
+          path: production-dist.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload backend dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.backend_artifact_name }}
+          path: production-server-dist.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download frontend dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.frontend_artifact_name }}
+          path: .
+
+      - name: Download backend dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.backend_artifact_name }}
+          path: .
+
+      - name: Upload dist packages to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: feijao
+          key: ${{ secrets.GCP_VM_SSH_PRIVATE_KEY }}
+          port: 22
+          source: production-dist.tar.gz,production-server-dist.tar.gz
+          target: /tmp
+
+      - name: Extract dist in production
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: feijao
+          key: ${{ secrets.GCP_VM_SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -euo pipefail
+            export PATH="$PATH:/usr/local/bin:$HOME/.npm-global/bin"
+            export PATH="$PATH:$(npm config get prefix)/bin"
+
+            APP_ROOT="$HOME/cardapio-app"
+            APP_DIR="$APP_ROOT/production"
+            BRANCH="main"
+            PROCESS_NAME="production"
+            PORT="3002"
+            DB_PATH="../cardapio-prod.db"
+            FRONTEND_DIST_PACKAGE="/tmp/production-dist.tar.gz"
+            BACKEND_DIST_PACKAGE="/tmp/production-server-dist.tar.gz"
+            REPO_HTTPS="https://github.com/${{ github.repository }}.git"
+
+            mkdir -p "$APP_ROOT"
+
+            if [ ! -f "$FRONTEND_DIST_PACKAGE" ]; then
+              echo "Pacote frontend dist não encontrado: $FRONTEND_DIST_PACKAGE"
+              exit 1
+            fi
+
+            if [ ! -f "$BACKEND_DIST_PACKAGE" ]; then
+              echo "Pacote backend dist não encontrado: $BACKEND_DIST_PACKAGE"
+              exit 1
+            fi
+
+            mkdir -p "$APP_DIR"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "Clonando backend/repo em $APP_DIR"
+              git clone "$REPO_HTTPS" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            npm --prefix server ci --omit=dev --no-audit --no-fund
+
+            if ! command -v pm2 >/dev/null 2>&1; then
+              npm install -g pm2
+            fi
+
+            cat > server/.env <<EOF
+            NODE_ENV=production
+            PORT=$PORT
+            DATABASE_PATH=$DB_PATH
+            EOF
+
+            rm -rf "$APP_DIR/server/dist.new"
+            mkdir -p "$APP_DIR/server/dist.new"
+            tar -xzf "$BACKEND_DIST_PACKAGE" -C "$APP_DIR/server/dist.new"
+
+            if [ ! -d "$APP_DIR/server/dist.new/dist" ]; then
+              echo "Estrutura inválida no artifact do backend (dist ausente)"
+              exit 1
+            fi
+
+            rm -rf "$APP_DIR/server/dist.prev"
+            if [ -d "$APP_DIR/server/dist" ]; then
+              mv "$APP_DIR/server/dist" "$APP_DIR/server/dist.prev"
+            fi
+            mv "$APP_DIR/server/dist.new/dist" "$APP_DIR/server/dist"
+            rm -rf "$APP_DIR/server/dist.new"
+            rm -f "$BACKEND_DIST_PACKAGE"
+
+            rm -rf "$APP_DIR/dist.new"
+            mkdir -p "$APP_DIR/dist.new"
+            tar -xzf "$FRONTEND_DIST_PACKAGE" -C "$APP_DIR/dist.new"
+
+            if [ ! -d "$APP_DIR/dist.new/dist" ]; then
+              echo "Estrutura inválida no artifact (dist ausente)"
+              exit 1
+            fi
+
+            rm -rf "$APP_DIR/dist.prev"
+            if [ -d "$APP_DIR/dist" ]; then
+              mv "$APP_DIR/dist" "$APP_DIR/dist.prev"
+            fi
+            mv "$APP_DIR/dist.new/dist" "$APP_DIR/dist"
+            rm -rf "$APP_DIR/dist.new"
+            rm -f "$FRONTEND_DIST_PACKAGE"
+
+            PM2_EXISTS=0
+            pm2 describe "$PROCESS_NAME" >/dev/null 2>&1 && PM2_EXISTS=1 || true
+
+            if [ "$PM2_EXISTS" -eq 1 ]; then
+              pm2 restart "$PROCESS_NAME" --update-env
+            else
+              pm2 start npm --name "$PROCESS_NAME" --cwd "$APP_DIR/server" -- run start
+            fi
+
+            pm2 save
+            pm2 status "$PROCESS_NAME"
+
+            HEALTH_URL="http://127.0.0.1:$PORT/health"
+            for i in $(seq 1 30); do
+              if curl -fsS "$HEALTH_URL" >/dev/null; then
+                echo "Healthcheck OK em $HEALTH_URL"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "Healthcheck falhou para $HEALTH_URL"
+            command -v pm2 >/dev/null 2>&1 && pm2 logs "$PROCESS_NAME" --lines 120 --nostream || true
+            exit 1
