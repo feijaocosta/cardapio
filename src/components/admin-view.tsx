@@ -4,6 +4,7 @@ import {
   addMenuItem, 
   removeMenuItem, 
   getOrders, 
+  updateOrderStatus,
   getMenus,
   addMenu,
   updateMenu,
@@ -13,6 +14,7 @@ import {
   removeItemFromMenu,
   type MenuItem, 
   type Order,
+  type OrderStatus,
   type Menu 
 } from '../../services/api';
 import { 
@@ -38,6 +40,8 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [activeTab, setActiveTab] = useState<'orders' | 'items' | 'menus'>('orders');
+  const [orderFilter, setOrderFilter] = useState<'upToReady' | 'all' | OrderStatus>('upToReady');
+  const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   
   // New item form
   const [newItemName, setNewItemName] = useState('');
@@ -49,11 +53,24 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   const [newMenuDescription, setNewMenuDescription] = useState('');
   const [newMenuLogo, setNewMenuLogo] = useState('');
 
-  const loadData = async () => {
+  const getFilterStatuses = (filter: 'upToReady' | 'all' | OrderStatus): OrderStatus[] | undefined => {
+    if (filter === 'upToReady') {
+      return ['Pendente', 'Em preparação', 'Pronto'];
+    }
+
+    if (filter === 'all') {
+      return undefined;
+    }
+
+    return [filter];
+  };
+
+  const loadData = async (filter = orderFilter) => {
     try {
+      const statuses = getFilterStatuses(filter);
       const [items, ordersList, menusList] = await Promise.all([
         getMenuItems(),
-        getOrders(),
+        getOrders(statuses),
         getMenus(),
       ]);
       setMenuItems(items);
@@ -67,6 +84,10 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
   useEffect(() => {
     loadData();
   }, [refreshTrigger]);
+
+  useEffect(() => {
+    loadData(orderFilter);
+  }, [orderFilter]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,8 +174,45 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const handleOrderStatusChange = async (order: Order, nextStatus: OrderStatus) => {
+    if (order.status === nextStatus) {
+      return;
+    }
+
+    try {
+      setUpdatingOrderId(order.id);
+      await updateOrderStatus(order.id, nextStatus);
+      await loadData(orderFilter);
+    } catch (error) {
+      console.error('Erro ao atualizar status do pedido:', error);
+      alert('Erro ao atualizar status do pedido. Por favor, tente novamente.');
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
+  const getStatusStyle = (status: OrderStatus): string => {
+    const styles: Record<OrderStatus, string> = {
+      'Pendente': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'Em preparação': 'bg-blue-100 text-blue-800 border-blue-200',
+      'Pronto': 'bg-green-100 text-green-800 border-green-200',
+      'Entregue': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      'Cancelado': 'bg-red-100 text-red-800 border-red-200',
+    };
+
+    return styles[status];
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) {
+      return 'Data indisponível';
+    }
+
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return 'Data inválida';
+    }
+
     return date.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -220,6 +278,23 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
           {activeTab === 'orders' && (
             <div>
               <h2 className="text-slate-700 mb-4">Pedidos Realizados</h2>
+
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <label className="text-sm text-gray-600">Filtro:</label>
+                <select
+                  value={orderFilter}
+                  onChange={(e) => setOrderFilter(e.target.value as 'upToReady' | 'all' | OrderStatus)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="upToReady">Ativos (ate Pronto)</option>
+                  <option value="all">Todos</option>
+                  <option value="Pendente">Pendente</option>
+                  <option value="Em preparação">Em preparação</option>
+                  <option value="Pronto">Pronto</option>
+                  <option value="Entregue">Entregue</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+              </div>
               
               {orders.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
@@ -238,10 +313,25 @@ export function AdminView({ refreshTrigger }: AdminViewProps) {
                           </div>
                           <div className="flex items-center gap-2 text-gray-600 text-sm">
                             <Clock className="w-4 h-4" />
-                            {formatDate(order.date)}
+                            {formatDate(order.createdAt)}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex flex-col items-end gap-2">
+                          <span className={`text-xs px-2 py-1 rounded border ${getStatusStyle(order.status)}`}>
+                            {order.status}
+                          </span>
+                          <select
+                            value={order.status}
+                            onChange={(e) => handleOrderStatusChange(order, e.target.value as OrderStatus)}
+                            disabled={updatingOrderId === order.id}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm bg-white disabled:opacity-50"
+                          >
+                            <option value="Pendente">Pendente</option>
+                            <option value="Em preparação">Em preparação</option>
+                            <option value="Pronto">Pronto</option>
+                            <option value="Entregue">Entregue</option>
+                            <option value="Cancelado">Cancelado</option>
+                          </select>
                           <div className="text-sm text-gray-600">Total</div>
                           <div className="text-green-600">
                             R$ {order.total.toFixed(2)}

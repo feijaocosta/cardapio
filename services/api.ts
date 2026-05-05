@@ -16,10 +16,28 @@ export interface OrderItem {
 export interface Order {
   id: number;
   customerName: string;
+  status: OrderStatus;
   items: OrderItem[];
   total: number;
-  date: string;
+  createdAt: string;
+  updatedAt?: string;
   menuId?: number;
+}
+
+export interface CreateOrderPayload {
+  customerName: string;
+  items: Array<{
+    itemId: number;
+    quantity: number;
+    unitPrice: number;
+  }>;
+  total?: number;
+  menuId?: number;
+}
+
+interface ApiOrder extends Omit<Order, 'createdAt'> {
+  createdAt?: string;
+  date?: string;
 }
 
 export interface Menu {
@@ -125,11 +143,21 @@ export async function removeMenuItem(id: number): Promise<void> {
 
 // ==================== Pedidos ====================
 
-export async function getOrders(): Promise<Order[]> {
-  return fetchAPI<Order[]>('/api/orders');
+export async function getOrders(statuses?: OrderStatus[]): Promise<Order[]> {
+  const query = statuses && statuses.length > 0
+    ? `?status=${encodeURIComponent(statuses.join(','))}`
+    : '';
+
+  const orders = await fetchAPI<ApiOrder[]>(`/api/orders${query}`);
+
+  return orders.map((order) => ({
+    ...order,
+    status: order.status || 'Pendente',
+    createdAt: order.createdAt || order.date || new Date().toISOString(),
+  }));
 }
 
-export async function addOrder(order: Omit<Order, 'id' | 'date'>): Promise<Order> {
+export async function addOrder(order: CreateOrderPayload): Promise<Order> {
   return fetchAPI<Order>('/api/orders', {
     method: 'POST',
     body: JSON.stringify(order),
@@ -140,7 +168,7 @@ export type OrderStatus = 'Pendente' | 'Em preparação' | 'Pronto' | 'Entregue'
 
 export async function updateOrderStatus(orderId: number, status: OrderStatus): Promise<Order> {
   return fetchAPI<Order>(`/api/orders/${orderId}/status`, {
-    method: 'POST',
+    method: 'PATCH',
     body: JSON.stringify({ status }),
   });
 }
