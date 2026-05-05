@@ -7,7 +7,32 @@ export class OrderController {
   constructor(private orderService: OrderService) {}
 
   async getAll(req: Request, res: Response): Promise<void> {
-    const orders = await this.orderService.getAllOrders();
+    const validStatuses: OrderStatus[] = ['Pendente', 'Em preparação', 'Pronto', 'Entregue', 'Cancelado'];
+    const rawStatus = req.query.status;
+
+    let statuses: OrderStatus[] | undefined;
+    if (typeof rawStatus === 'string' && rawStatus.trim()) {
+      const requestedStatuses = rawStatus
+        .split(',')
+        .map(status => status.trim())
+        .filter(Boolean);
+
+      const invalidStatuses = requestedStatuses.filter(
+        status => !validStatuses.includes(status as OrderStatus)
+      );
+
+      if (invalidStatuses.length > 0) {
+        res.status(400).json({
+          message: `Status inválido: ${invalidStatuses.join(', ')}`,
+          validStatuses,
+        });
+        return;
+      }
+
+      statuses = requestedStatuses as OrderStatus[];
+    }
+
+    const orders = await this.orderService.getAllOrders(statuses);
     res.json(orders);
   }
 

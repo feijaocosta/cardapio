@@ -3,12 +3,18 @@ import { IOrderRepository } from './OrderRepository';
 import { NotFoundError } from '../../core/errors/AppError';
 import { CreateOrderDTO, UpdateOrderDTO, OrderResponseDTO } from '../../application/dtos/order';
 
+const DEFAULT_VISIBLE_STATUSES: OrderStatus[] = ['Pendente', 'Em preparação', 'Pronto'];
+
 export class OrderService {
   constructor(private orderRepository: IOrderRepository) {}
 
-  async getAllOrders(): Promise<OrderResponseDTO[]> {
+  async getAllOrders(statuses?: OrderStatus[]): Promise<OrderResponseDTO[]> {
     const orders = await this.orderRepository.findAll();
-    return orders.map(order => OrderResponseDTO.from(order));
+    const filteredOrders = statuses && statuses.length > 0
+      ? orders.filter(order => statuses.includes(order.status))
+      : orders.filter(order => DEFAULT_VISIBLE_STATUSES.includes(order.status));
+
+    return filteredOrders.map(order => OrderResponseDTO.from(order));
   }
 
   async getOrderById(id: number): Promise<OrderResponseDTO> {

@@ -585,7 +585,7 @@ curl http://localhost:3000/orders
     "id": 2,
     "customer_name": "Maria Santos",
     "created_at": "2026-01-05T11:00:00Z",
-    "status": "Confirmado",
+    "status": "Em preparação",
     "items": "3:1"
   }
 ]
@@ -644,30 +644,31 @@ curl -X POST http://localhost:3000/orders \
 
 ---
 
-### PUT /orders/:id
+### PATCH /orders/:id/status
 
 Atualizar o status de um pedido.
 
 **Request:**
 ```bash
-curl -X PUT http://localhost:3000/orders/1 \
+curl -X PATCH http://localhost:3000/orders/1/status \
   -H "Content-Type: application/json" \
   -d '{
-    "status": "Preparando"
+    "status": "Em preparação"
   }'
 ```
 
 **Response (200 OK):**
 ```json
 {
-  "message": "Order updated"
+  "id": 1,
+  "customerName": "Joao Silva",
+  "status": "Em preparação"
 }
 ```
 
 **Status permitidos:**
 - `Pendente`
-- `Confirmado`
-- `Preparando`
+- `Em preparação`
 - `Pronto`
 - `Entregue`
 - `Cancelado`
@@ -837,9 +838,9 @@ curl -X POST http://localhost:3000/orders \
 curl http://localhost:3000/orders
 
 # 6. Atualizar status do pedido
-curl -X PUT http://localhost:3000/orders/1 \
+curl -X PATCH http://localhost:3000/orders/1/status \
   -H "Content-Type: application/json" \
-  -d '{"status":"Confirmado"}'
+  -d '{"status":"Em preparação"}'
 ```
 
 ---
